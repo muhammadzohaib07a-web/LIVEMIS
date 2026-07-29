@@ -8,6 +8,78 @@ export type Database = {
   };
   public: {
     Tables: {
+      departments: {
+        Row: {
+          active: boolean;
+          created_at: string;
+          created_by: string | null;
+          description: string | null;
+          id: string;
+          name: string;
+          sort_order: number;
+          updated_at: string;
+        };
+        Insert: {
+          active?: boolean;
+          created_at?: string;
+          created_by?: string | null;
+          description?: string | null;
+          id?: string;
+          name: string;
+          sort_order?: number;
+          updated_at?: string;
+        };
+        Update: {
+          active?: boolean;
+          created_at?: string;
+          created_by?: string | null;
+          description?: string | null;
+          id?: string;
+          name?: string;
+          sort_order?: number;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      issue_categories: {
+        Row: {
+          active: boolean;
+          created_at: string;
+          created_by: string | null;
+          description: string | null;
+          group_name: string;
+          id: string;
+          name: string;
+          slug: string;
+          sort_order: number;
+          updated_at: string;
+        };
+        Insert: {
+          active?: boolean;
+          created_at?: string;
+          created_by?: string | null;
+          description?: string | null;
+          group_name?: string;
+          id?: string;
+          name: string;
+          slug: string;
+          sort_order?: number;
+          updated_at?: string;
+        };
+        Update: {
+          active?: boolean;
+          created_at?: string;
+          created_by?: string | null;
+          description?: string | null;
+          group_name?: string;
+          id?: string;
+          name?: string;
+          slug?: string;
+          sort_order?: number;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       kb_articles: {
         Row: {
           category: Database["public"]["Enums"]["ticket_category"];
@@ -140,7 +212,7 @@ export type Database = {
         Row: {
           assignee_id: string | null;
           attachments: Json;
-          category: Database["public"]["Enums"]["ticket_category"];
+          category: string;
           created_at: string;
           description: string;
           follow_up_reason: string | null;
@@ -156,7 +228,7 @@ export type Database = {
         Insert: {
           assignee_id?: string | null;
           attachments?: Json;
-          category?: Database["public"]["Enums"]["ticket_category"];
+          category?: string;
           created_at?: string;
           description: string;
           follow_up_reason?: string | null;
@@ -172,7 +244,7 @@ export type Database = {
         Update: {
           assignee_id?: string | null;
           attachments?: Json;
-          category?: Database["public"]["Enums"]["ticket_category"];
+          category?: string;
           created_at?: string;
           description?: string;
           follow_up_reason?: string | null;

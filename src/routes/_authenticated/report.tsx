@@ -18,7 +18,12 @@ import { Loader2, Sparkles, AlertCircle, Building2, Send, ImagePlus, X } from "l
 import type { Database } from "@/integrations/supabase/types";
 import { isPreviewMode } from "@/lib/preview-auth";
 import { MIS_DEPARTMENT } from "@/lib/departments";
-import { MIS_TICKET_CATEGORIES, type TicketCategory } from "@/lib/ticket-categories";
+import {
+  loadTicketCategories,
+  MIS_TICKET_CATEGORIES,
+  type TicketCategory,
+  type TicketCategoryOption,
+} from "@/lib/ticket-categories";
 import { getCurrentUserContext } from "@/lib/current-user";
 import { storePreviewTicket } from "@/lib/preview-data";
 import { analyzeIssueScreenshot, generateIssueDescription } from "@/lib/ai-description";
@@ -72,6 +77,7 @@ function ReportPage() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState<TicketCategory>("other");
+  const [categories, setCategories] = useState<TicketCategoryOption[]>(MIS_TICKET_CATEGORIES);
   const [priority, setPriority] = useState<Priority>("medium");
   const [loading, setLoading] = useState(false);
   const [generatingDescription, setGeneratingDescription] = useState(false);
@@ -85,6 +91,7 @@ function ReportPage() {
       setRequesterDepartment("Production");
       return;
     }
+    void loadTicketCategories().then(setCategories);
     supabase.auth.getUser().then(async ({ data }) => {
       if (!data.user) return;
       const { data: profile } = await supabase
@@ -120,9 +127,7 @@ function ReportPage() {
   const applySuggestion = () => {
     const s = suggestCategory();
     setCategory(s);
-    toast.success(
-      `AI suggested category: ${MIS_TICKET_CATEGORIES.find((c) => c.value === s)?.label}`,
-    );
+    toast.success(`AI suggested category: ${categories.find((c) => c.value === s)?.label ?? s}`);
   };
 
   const writeDescriptionWithAi = async () => {
@@ -392,7 +397,7 @@ function ReportPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {MIS_TICKET_CATEGORIES.map((c) => (
+                  {categories.map((c) => (
                     <SelectItem key={c.value} value={c.value}>
                       <span className="font-medium">{c.label}</span>
                       <span className="ml-2 text-xs text-muted-foreground">{c.hint}</span>

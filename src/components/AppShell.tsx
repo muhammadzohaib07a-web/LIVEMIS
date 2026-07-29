@@ -13,6 +13,7 @@ import {
   Moon,
   Sun,
   UsersRound,
+  Settings2,
 } from "lucide-react";
 import { BrandLogo } from "@/components/BrandLogo";
 import { toast } from "sonner";
@@ -34,6 +35,7 @@ const nav = [
   { to: "/kb", label: "Knowledge Base", icon: BookOpen },
   { to: "/notifications", label: "Notifications", icon: Bell },
   { to: "/users", label: "User Management", icon: UsersRound },
+  { to: "/settings", label: "Master Setup", icon: Settings2 },
 ] as const;
 
 export function AppShell({ children }: { children: React.ReactNode }) {
@@ -217,7 +219,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }) {
     const visibleNav = nav.filter((item) => {
       if (item.to === "/report") return !isMisStaff(role);
-      if (item.to === "/users") return role === "admin";
+      if (item.to === "/users" || item.to === "/settings") return role === "admin";
       return true;
     });
     return (

@@ -5,14 +5,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import type { Database } from "@/integrations/supabase/types";
 
 const roleSchema = z.enum(["admin", "agent", "employee"]);
-const departmentSchema = z.enum([
-  "Accounts",
-  "Inventory",
-  "Quality",
-  "Production",
-  "Warehouse",
-  "MIS",
-]);
+const departmentSchema = z.string().trim().min(2).max(100);
 
 const createUserSchema = z.object({
   fullName: z.string().trim().min(2).max(100),
@@ -31,6 +24,11 @@ const changeRoleSchema = z.object({
 const resetPasswordSchema = z.object({
   userId: z.string().uuid(),
   temporaryPassword: z.string().min(8).max(72),
+});
+
+const changeDepartmentSchema = z.object({
+  userId: z.string().uuid(),
+  department: departmentSchema,
 });
 
 export type ManagedUser = {
@@ -53,6 +51,16 @@ async function assertAdmin(supabase: SupabaseClient<Database>, userId: string) {
     .eq("role", "admin")
     .maybeSingle();
   if (error || !data) throw new Error("Only the MIS Head can manage user accounts.");
+}
+
+async function assertActiveDepartment(supabase: SupabaseClient<Database>, department: string) {
+  const { data, error } = await supabase
+    .from("departments")
+    .select("name")
+    .eq("name", department)
+    .eq("active", true)
+    .maybeSingle();
+  if (error || !data) throw new Error("Select an active company department.");
 }
 
 export const listManagedUsers = createServerFn({ method: "GET" })
@@ -102,6 +110,7 @@ export const createManagedUser = createServerFn({ method: "POST" })
     await assertAdmin(context.supabase, context.userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const department = data.role === "employee" ? data.department : "MIS";
+    await assertActiveDepartment(supabaseAdmin, department);
     const { data: created, error: createError } = await supabaseAdmin.auth.admin.createUser({
       email: data.email,
       password: data.temporaryPassword,
@@ -182,5 +191,39 @@ export const resetManagedUserPassword = createServerFn({ method: "POST" })
       password: data.temporaryPassword,
     });
     if (error) throw new Error(error.message);
+    return { success: true };
+  });
+
+export const changeManagedUserDepartment = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator(changeDepartmentSchema)
+  .handler(async ({ context, data }) => {
+    await assertAdmin(context.supabase, context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    await assertActiveDepartment(supabaseAdmin, data.department);
+    const { data: targetRole } = await supabaseAdmin
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", data.userId)
+      .maybeSingle();
+    if (targetRole?.role !== "employee") {
+      throw new Error("MIS staff remain assigned to the MIS department.");
+    }
+    const { error: profileError } = await supabaseAdmin
+      .from("profiles")
+      .update({ department: data.department })
+      .eq("id", data.userId);
+    if (profileError) throw new Error(profileError.message);
+    const { data: authUser, error: authReadError } = await supabaseAdmin.auth.admin.getUserById(
+      data.userId,
+    );
+    if (authReadError) throw new Error(authReadError.message);
+    const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(data.userId, {
+      user_metadata: {
+        ...(authUser.user.user_metadata ?? {}),
+        department: data.department,
+      },
+    });
+    if (authError) throw new Error(authError.message);
     return { success: true };
   });

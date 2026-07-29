@@ -27,6 +27,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  changeManagedUserDepartment,
   changeManagedUserRole,
   createManagedUser,
   listManagedUsers,
@@ -34,7 +35,7 @@ import {
   type ManagedUser,
 } from "@/lib/admin-users";
 import { getCurrentUserContext, type AppRole } from "@/lib/current-user";
-import { EMPLOYEE_DEPARTMENTS } from "@/lib/departments";
+import { FALLBACK_DEPARTMENTS, loadDepartments, type DepartmentOption } from "@/lib/departments";
 import { isPreviewMode } from "@/lib/preview-auth";
 import { previewAgents, previewRequesters } from "@/lib/preview-data";
 
@@ -51,7 +52,7 @@ export const Route = createFileRoute("/_authenticated/users")({
   component: UserManagementPage,
 });
 
-type DepartmentFilter = "all" | (typeof EMPLOYEE_DEPARTMENTS)[number] | "MIS";
+type DepartmentFilter = string;
 type RoleFilter = "all" | AppRole;
 
 const roleStyles: Record<AppRole, string> = {
@@ -102,6 +103,7 @@ function getPreviewUsers(): ManagedUser[] {
 function UserManagementPage() {
   const navigate = useNavigate();
   const [users, setUsers] = useState<ManagedUser[]>([]);
+  const [departments, setDepartments] = useState<DepartmentOption[]>(FALLBACK_DEPARTMENTS);
   const [loading, setLoading] = useState(true);
   const [previewOnly, setPreviewOnly] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -113,7 +115,7 @@ function UserManagementPage() {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [employeeId, setEmployeeId] = useState("");
-  const [department, setDepartment] = useState<(typeof EMPLOYEE_DEPARTMENTS)[number]>("Production");
+  const [department, setDepartment] = useState("Production");
   const [role, setRole] = useState<AppRole>("employee");
   const [temporaryPassword, setTemporaryPassword] = useState("");
   const [showTemporaryPassword, setShowTemporaryPassword] = useState(false);
@@ -131,7 +133,12 @@ function UserManagementPage() {
       if (isPreviewMode()) {
         setUsers(getPreviewUsers());
       } else {
-        setUsers(await listManagedUsers());
+        const [managedUsers, departmentOptions] = await Promise.all([
+          listManagedUsers(),
+          loadDepartments(),
+        ]);
+        setUsers(managedUsers);
+        setDepartments(departmentOptions);
       }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "User accounts could not be loaded");
@@ -171,12 +178,12 @@ function UserManagementPage() {
   const departmentCounts = useMemo(
     () =>
       Object.fromEntries(
-        ["MIS", ...EMPLOYEE_DEPARTMENTS].map((item) => [
-          item,
-          users.filter((user) => user.department === item).length,
+        departments.map((item) => [
+          item.name,
+          users.filter((user) => user.department === item.name).length,
         ]),
       ),
-    [users],
+    [users, departments],
   );
 
   const submitNewUser = async (event: React.FormEvent) => {
@@ -298,6 +305,27 @@ function UserManagementPage() {
       toast.success(`${user.fullName ?? user.email} is now ${nextRole}`);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Role could not be updated");
+    }
+  };
+
+  const updateDepartment = async (user: ManagedUser, nextDepartment: string) => {
+    if (user.department === nextDepartment || user.role !== "employee") return;
+    try {
+      if (isPreviewMode()) {
+        setUsers((current) =>
+          current.map((item) =>
+            item.id === user.id ? { ...item, department: nextDepartment } : item,
+          ),
+        );
+      } else {
+        await changeManagedUserDepartment({
+          data: { userId: user.id, department: nextDepartment },
+        });
+        await loadUsers();
+      }
+      toast.success(`${user.fullName ?? user.email} moved to ${nextDepartment}`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Department could not be updated");
     }
   };
 
@@ -448,19 +476,19 @@ function UserManagementPage() {
               <Select
                 value={role === "employee" ? department : "MIS"}
                 disabled={role !== "employee"}
-                onValueChange={(value) =>
-                  setDepartment(value as (typeof EMPLOYEE_DEPARTMENTS)[number])
-                }
+                onValueChange={setDepartment}
               >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {EMPLOYEE_DEPARTMENTS.map((item) => (
-                    <SelectItem key={item} value={item}>
-                      {item}
-                    </SelectItem>
-                  ))}
+                  {departments
+                    .filter((item) => item.name !== "MIS")
+                    .map((item) => (
+                      <SelectItem key={item.name} value={item.name}>
+                        {item.name}
+                      </SelectItem>
+                    ))}
                   <SelectItem value="MIS">MIS</SelectItem>
                 </SelectContent>
               </Select>
@@ -578,10 +606,9 @@ function UserManagementPage() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All departments ({users.length})</SelectItem>
-            <SelectItem value="MIS">MIS ({departmentCounts.MIS ?? 0})</SelectItem>
-            {EMPLOYEE_DEPARTMENTS.map((item) => (
-              <SelectItem key={item} value={item}>
-                {item} ({departmentCounts[item] ?? 0})
+            {departments.map((item) => (
+              <SelectItem key={item.name} value={item.name}>
+                {item.name} ({departmentCounts[item.name] ?? 0})
               </SelectItem>
             ))}
           </SelectContent>
@@ -631,7 +658,29 @@ function UserManagementPage() {
                       <p className="text-xs text-muted-foreground">{user.email}</p>
                     </td>
                     <td className="px-4 py-4 font-mono text-xs">{user.employeeId ?? "Not set"}</td>
-                    <td className="px-4 py-4">{user.department ?? "Not set"}</td>
+                    <td className="px-4 py-4">
+                      {user.role === "employee" ? (
+                        <Select
+                          value={user.department ?? ""}
+                          onValueChange={(value) => void updateDepartment(user, value)}
+                        >
+                          <SelectTrigger className="h-8 w-40 text-xs">
+                            <SelectValue placeholder="Select department" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {departments
+                              .filter((item) => item.name !== "MIS")
+                              .map((item) => (
+                                <SelectItem key={item.name} value={item.name}>
+                                  {item.name}
+                                </SelectItem>
+                              ))}
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <span className="font-medium">MIS</span>
+                      )}
+                    </td>
                     <td className="px-4 py-4">
                       <Select
                         value={user.role}

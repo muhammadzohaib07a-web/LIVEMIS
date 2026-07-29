@@ -22,8 +22,10 @@ import {
 } from "@/lib/preview-data";
 import {
   getCategoryLabel,
+  loadTicketCategories,
   MIS_TICKET_CATEGORIES,
   type TicketCategory,
+  type TicketCategoryOption,
 } from "@/lib/ticket-categories";
 import {
   normalizedTicketStatus,
@@ -67,6 +69,7 @@ function TicketsList() {
   const [status, setStatus] = useState<Status>("all");
   const [queueFilter, setQueueFilter] = useState<QueueFilter>("all");
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>("all");
+  const [categories, setCategories] = useState<TicketCategoryOption[]>(MIS_TICKET_CATEGORIES);
   const [role, setRole] = useState<AppRole>("employee");
   const [me, setMe] = useState<string | null>(null);
   const [requesters, setRequesters] = useState<Record<string, Requester>>({});
@@ -134,6 +137,9 @@ function TicketsList() {
 
     (async () => {
       setLoading(true);
+      if (!isPreviewMode()) {
+        void loadTicketCategories().then(setCategories);
+      }
       const context = await getCurrentUserContext();
       if (!context) {
         setLoading(false);
@@ -260,7 +266,7 @@ function TicketsList() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All MIS categories</SelectItem>
-            {MIS_TICKET_CATEGORIES.map((category) => (
+            {categories.map((category) => (
               <SelectItem key={category.value} value={category.value}>
                 {category.label}
               </SelectItem>
@@ -321,7 +327,7 @@ function TicketsList() {
                         {t.priority}
                       </span>
                       <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                        · {getCategoryLabel(t.category)}
+                        · {getCategoryLabel(t.category, categories)}
                       </span>
                     </div>
                     <p className="mt-1 truncate text-sm font-semibold">{t.title}</p>
