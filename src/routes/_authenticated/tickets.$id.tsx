@@ -700,8 +700,15 @@ function TicketDetail() {
   const canManageStatus = role === "admin" || (role === "agent" && ticket.assignee_id === me);
   const canGiveFeedback =
     role === "employee" && ticket.user_id === me && ticket.status === "awaiting_feedback";
+  // Only count a confirmation sent during the *current* awaiting_feedback cycle: a ticket
+  // can cycle through awaiting_feedback more than once, and ticket.updated_at is bumped
+  // every time the tickets row changes (including the transition into this status), so a
+  // confirmation from an earlier round always predates it.
   const customerConfirmed = messages.some(
-    (message) => message.sender_id === me && message.body.startsWith("✅ Customer confirmation:"),
+    (message) =>
+      message.sender_id === me &&
+      message.body.startsWith("✅ Customer confirmation:") &&
+      new Date(message.created_at) >= new Date(ticket.updated_at),
   );
   const canCreateFollowUp =
     role === "employee" && ticket.user_id === me && ticket.status === "closed";
