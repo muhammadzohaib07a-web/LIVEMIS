@@ -230,9 +230,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         </header>
         <main
-          className={`mx-auto px-4 py-8 sm:px-6 sm:py-10 ${
-            isTicketDetailPage(pathname) ? "max-w-none" : "max-w-7xl"
-          }`}
+          className={
+            isTicketDetailPage(pathname)
+              ? "mx-auto max-w-none px-4 py-4 sm:px-6 sm:py-5"
+              : "mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-10"
+          }
         >
           {children}
         </main>
