@@ -252,6 +252,15 @@ html {
   color: transparent;
 }
 
+/* Scrollable but no visible scrollbar track (e.g. the ticket split-pane columns) */
+@utility scrollbar-none {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
 /* Subtle grid pattern for hero backdrops */
 @utility bg-grid {
   background-image:

@@ -874,7 +874,80 @@ function TicketDetail() {
       </Link>
 
       <div className="gap-6 lg:flex lg:h-[calc(100vh-9.5rem)]">
-        <div className="space-y-6 lg:w-[60%] lg:min-w-0 lg:overflow-y-auto lg:pr-1">
+        <div className="space-y-6 scrollbar-none lg:w-[60%] lg:min-w-0 lg:overflow-y-auto lg:pr-1">
+          {role === "admin" && (
+            <div className="rounded-2xl border border-primary/30 bg-primary/5 p-5">
+              <h3 className="flex items-center gap-2 text-sm font-semibold">
+                <UserCheck className="h-4 w-4" /> MIS Head Assignment
+              </h3>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Select the MIS agent responsible for this issue.
+              </p>
+              <Select value={ticket.assignee_id ?? undefined} onValueChange={assignTicket}>
+                <SelectTrigger className="mt-3">
+                  <SelectValue placeholder="Assign an MIS agent" />
+                </SelectTrigger>
+                <SelectContent>
+                  {agents.map((agent) => (
+                    <SelectItem key={agent.id} value={agent.id}>
+                      {agent.full_name ?? agent.email ?? "MIS Agent"} ({agent.assigned_count})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+          <div className="rounded-2xl border border-border/60 bg-surface/40 p-5 backdrop-blur">
+            <h3 className="text-sm font-semibold">Status</h3>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {role === "admin"
+                ? "Move the ticket through the approved support lifecycle."
+                : role === "agent" && ticket.assignee_id === me
+                  ? "Move your assigned ticket to its next valid stage."
+                  : "MIS will update the progress of your request."}
+            </p>
+            <p className="mt-3 text-[10px] leading-relaxed text-muted-foreground">
+              Open → In Progress → Answered → Awaiting Customer Feedback → Closed
+            </p>
+            <div
+              className={`mt-3 inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-semibold ${sm.cls}`}
+            >
+              <StatusIcon className="h-3.5 w-3.5" /> Current: {sm.label}
+            </div>
+            {ticket.closed_at && (
+              <p className="mt-2 text-[10px] text-muted-foreground">
+                Closed on {new Date(ticket.closed_at).toLocaleString()}
+              </p>
+            )}
+            {canManageStatus && nextStatuses.length > 0 && (
+              <div className="mt-3">
+                <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                  Next action
+                </p>
+                <div className="grid grid-cols-1 gap-2">
+                  {nextStatuses.map((s) => {
+                    const meta = statusMeta[s];
+                    const Icon = meta.icon;
+                    return (
+                      <button
+                        key={s}
+                        onClick={() => updateStatus(s)}
+                        className={`inline-flex items-center justify-center gap-1.5 rounded-lg border px-2 py-2 text-xs font-semibold transition ${meta.cls}`}
+                      >
+                        <Icon className="h-3.5 w-3.5" /> Move to {meta.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+            {(ticket.status === "closed" || ticket.status === "canceled") && (
+              <p className="mt-3 text-xs font-medium text-muted-foreground">
+                This is a terminal state. A closed issue can continue through a linked follow-up.
+              </p>
+            )}
+          </div>
+
           <div className="rounded-2xl border border-border/60 bg-surface/40 p-6 backdrop-blur">
             <div className="mb-3 flex flex-wrap items-center gap-2">
               <span className="font-mono text-xs text-muted-foreground">{ticket.ticket_no}</span>
@@ -1056,79 +1129,6 @@ function TicketDetail() {
             </div>
           )}
 
-          {role === "admin" && (
-            <div className="rounded-2xl border border-primary/30 bg-primary/5 p-5">
-              <h3 className="flex items-center gap-2 text-sm font-semibold">
-                <UserCheck className="h-4 w-4" /> MIS Head Assignment
-              </h3>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Select the MIS agent responsible for this issue.
-              </p>
-              <Select value={ticket.assignee_id ?? undefined} onValueChange={assignTicket}>
-                <SelectTrigger className="mt-3">
-                  <SelectValue placeholder="Assign an MIS agent" />
-                </SelectTrigger>
-                <SelectContent>
-                  {agents.map((agent) => (
-                    <SelectItem key={agent.id} value={agent.id}>
-                      {agent.full_name ?? agent.email ?? "MIS Agent"} ({agent.assigned_count})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-          <div className="rounded-2xl border border-border/60 bg-surface/40 p-5 backdrop-blur">
-            <h3 className="text-sm font-semibold">Status</h3>
-            <p className="mt-1 text-xs text-muted-foreground">
-              {role === "admin"
-                ? "Move the ticket through the approved support lifecycle."
-                : role === "agent" && ticket.assignee_id === me
-                  ? "Move your assigned ticket to its next valid stage."
-                  : "MIS will update the progress of your request."}
-            </p>
-            <p className="mt-3 text-[10px] leading-relaxed text-muted-foreground">
-              Open → In Progress → Answered → Awaiting Customer Feedback → Closed
-            </p>
-            <div
-              className={`mt-3 inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-semibold ${sm.cls}`}
-            >
-              <StatusIcon className="h-3.5 w-3.5" /> Current: {sm.label}
-            </div>
-            {ticket.closed_at && (
-              <p className="mt-2 text-[10px] text-muted-foreground">
-                Closed on {new Date(ticket.closed_at).toLocaleString()}
-              </p>
-            )}
-            {canManageStatus && nextStatuses.length > 0 && (
-              <div className="mt-3">
-                <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-                  Next action
-                </p>
-                <div className="grid grid-cols-1 gap-2">
-                  {nextStatuses.map((s) => {
-                    const meta = statusMeta[s];
-                    const Icon = meta.icon;
-                    return (
-                      <button
-                        key={s}
-                        onClick={() => updateStatus(s)}
-                        className={`inline-flex items-center justify-center gap-1.5 rounded-lg border px-2 py-2 text-xs font-semibold transition ${meta.cls}`}
-                      >
-                        <Icon className="h-3.5 w-3.5" /> Move to {meta.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-            {(ticket.status === "closed" || ticket.status === "canceled") && (
-              <p className="mt-3 text-xs font-medium text-muted-foreground">
-                This is a terminal state. A closed issue can continue through a linked follow-up.
-              </p>
-            )}
-          </div>
-
           <div className="rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/10 to-accent/10 p-5">
             <div className="mb-2 inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-background/40 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-widest text-primary">
               <Sparkles className="h-3 w-3" /> AI Summary
@@ -1166,7 +1166,7 @@ function TicketDetail() {
                 Chat connection error: {chatError}
               </div>
             )}
-            <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto p-5">
+            <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto scrollbar-none p-5">
               {messages.length === 0 ? (
                 <div className="flex h-full flex-col items-center justify-center text-center text-muted-foreground">
                   <p className="text-sm">No messages yet.</p>
