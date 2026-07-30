@@ -43,7 +43,12 @@ import {
   storePreviewTicketUpdate,
 } from "@/lib/preview-data";
 import { getCategoryLabel } from "@/lib/ticket-categories";
-import { MIS_STATUS_TRANSITIONS, TICKET_STATUS_LABELS } from "@/lib/ticket-status";
+import {
+  formatStatusChangeMessage,
+  isStatusChangeMessage,
+  MIS_STATUS_TRANSITIONS,
+  TICKET_STATUS_LABELS,
+} from "@/lib/ticket-status";
 
 type Ticket = Database["public"]["Tables"]["tickets"]["Row"];
 type Message = Database["public"]["Tables"]["ticket_messages"]["Row"];
@@ -501,11 +506,24 @@ function TicketDetail() {
       ticket.status === "awaiting_feedback" &&
       (s === "closed" || s === "in_progress");
     if (!canManage && !canGiveCustomerFeedback) return;
+    const previousStatus = ticket?.status;
     if (isPreviewMode()) {
       const update = { id, status: s, updated_at: new Date().toISOString() };
       setTicket((current) => (current ? { ...current, ...update } : current));
       storePreviewTicketUpdate(id, update);
       previewTicketChannelRef.current?.postMessage(update);
+      if (previousStatus && previousStatus !== s) {
+        const statusMessage: Message = {
+          id: `preview-status-${Date.now()}`,
+          ticket_id: id,
+          sender_id: me ?? ticket?.user_id ?? "preview-employee",
+          body: formatStatusChangeMessage(previousStatus, s),
+          created_at: new Date().toISOString(),
+        };
+        setMessages((current) => [...current, statusMessage]);
+        storePreviewMessage(statusMessage);
+        previewChannelRef.current?.postMessage(statusMessage);
+      }
       toast.success(`Marked ${statusMeta[s].label}`);
       return;
     }
@@ -597,6 +615,18 @@ function TicketDetail() {
       setTicket((current) => (current ? { ...current, ...update } : current));
       storePreviewTicketUpdate(id, update);
       previewTicketChannelRef.current?.postMessage(update);
+      if (ticket?.status && ticket.status !== nextStatus) {
+        const statusMessage: Message = {
+          id: `preview-status-${Date.now()}`,
+          ticket_id: id,
+          sender_id: me ?? ticket?.user_id ?? "preview-employee",
+          body: formatStatusChangeMessage(ticket.status, nextStatus),
+          created_at: new Date().toISOString(),
+        };
+        setMessages((current) => [...current, statusMessage]);
+        storePreviewMessage(statusMessage);
+        previewChannelRef.current?.postMessage(statusMessage);
+      }
       if (ticket?.assignee_id !== assigneeId) {
         const assignee = previewAgents.find((agent) => agent.id === assigneeId);
         const notification: Database["public"]["Tables"]["notifications"]["Row"] = {
@@ -892,6 +922,19 @@ function TicketDetail() {
                 </div>
               ) : (
                 messages.map((m) => {
+                  if (isStatusChangeMessage(m.body)) {
+                    return (
+                      <div key={m.id} className="flex justify-center">
+                        <span className="rounded-full border border-border/60 bg-muted/40 px-3 py-1 text-center text-[11px] text-muted-foreground">
+                          {m.body} ·{" "}
+                          {new Date(m.created_at).toLocaleTimeString([], {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </span>
+                      </div>
+                    );
+                  }
                   const mine = m.sender_id === me;
                   const sender = messageSenders[m.sender_id];
                   const senderRole: AppRole =

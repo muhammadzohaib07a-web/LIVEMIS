@@ -35,3 +35,13 @@ export const MIS_STATUS_TRANSITIONS: Record<TicketStatus, TicketStatus[]> = {
 export function normalizedTicketStatus(status: TicketStatus): TicketStatus {
   return status === "resolved" ? "closed" : status;
 }
+
+export const STATUS_CHANGE_MESSAGE_PREFIX = "🔄 Status changed";
+
+export function isStatusChangeMessage(body: string): boolean {
+  return body.startsWith(STATUS_CHANGE_MESSAGE_PREFIX);
+}
+
+export function formatStatusChangeMessage(from: TicketStatus, to: TicketStatus): string {
+  return `${STATUS_CHANGE_MESSAGE_PREFIX} from ${TICKET_STATUS_LABELS[from]} to ${TICKET_STATUS_LABELS[to]}`;
+}
