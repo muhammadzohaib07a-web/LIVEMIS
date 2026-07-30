@@ -873,8 +873,8 @@ function TicketDetail() {
         <ArrowLeft className="h-4 w-4" /> Back to tickets
       </Link>
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)] lg:items-start">
-        <div className="space-y-6">
+      <div className="gap-6 lg:flex lg:h-[calc(100vh-10rem)]">
+        <div className="space-y-6 lg:w-[42%] lg:min-w-0 lg:overflow-y-auto lg:pr-1">
           <div className="rounded-2xl border border-border/60 bg-surface/40 p-6 backdrop-blur">
             <div className="mb-3 flex flex-wrap items-center gap-2">
               <span className="font-mono text-xs text-muted-foreground">{ticket.ticket_no}</span>
@@ -1148,9 +1148,9 @@ function TicketDetail() {
           </div>
         </div>
 
-        <div className="lg:sticky lg:top-24">
-          {/* Chat */}
-          <div className="flex h-[calc(100vh-8rem)] min-h-[420px] flex-col rounded-2xl border border-border/60 bg-surface/40 backdrop-blur">
+        {/* Chat: fixed in place on desktop (lg:h-full inside the fixed-height flex row
+            above) — only its own message list scrolls; the left column scrolls on its own. */}
+        <div className="mt-6 flex h-[480px] flex-col rounded-2xl border border-border/60 bg-surface/40 backdrop-blur lg:mt-0 lg:h-full lg:w-[58%] lg:min-w-0">
             <div className="flex items-center justify-between border-b border-border/60 px-5 py-3">
               <h2 className="text-sm font-semibold">Conversation</h2>
               <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
@@ -1413,7 +1413,6 @@ function TicketDetail() {
               </div>
             </form>
           </div>
-        </div>
       </div>
     </>
   );

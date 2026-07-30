@@ -82,7 +82,7 @@ export type Database = {
       };
       kb_articles: {
         Row: {
-          category: Database["public"]["Enums"]["ticket_category"];
+          category: string;
           content: string;
           created_at: string;
           id: string;
@@ -92,7 +92,7 @@ export type Database = {
           updated_at: string;
         };
         Insert: {
-          category?: Database["public"]["Enums"]["ticket_category"];
+          category?: string;
           content: string;
           created_at?: string;
           id?: string;
@@ -102,7 +102,7 @@ export type Database = {
           updated_at?: string;
         };
         Update: {
-          category?: Database["public"]["Enums"]["ticket_category"];
+          category?: string;
           content?: string;
           created_at?: string;
           id?: string;

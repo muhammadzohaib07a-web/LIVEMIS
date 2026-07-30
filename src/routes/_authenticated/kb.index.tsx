@@ -27,33 +27,14 @@ import {
 import { toast } from "sonner";
 import type { Database } from "@/integrations/supabase/types";
 import { getCurrentUserContext, type AppRole } from "@/lib/current-user";
-import { MIS_TICKET_CATEGORIES } from "@/lib/ticket-categories";
+import {
+  getCategoryLabel,
+  loadTicketCategories,
+  MIS_TICKET_CATEGORIES,
+  type TicketCategoryOption,
+} from "@/lib/ticket-categories";
 
 type Article = Database["public"]["Tables"]["kb_articles"]["Row"];
-type KbCategory = Database["public"]["Enums"]["ticket_category"];
-
-// kb_articles.category is the original fixed Postgres enum, not the newer
-// expandable issue_categories text list that tickets use — so the article
-// form can only offer the enum's values.
-const KB_CATEGORY_VALUES: KbCategory[] = [
-  "hardware",
-  "software",
-  "network",
-  "email",
-  "access",
-  "erp",
-  "printer",
-  "server",
-  "backup",
-  "cctv",
-  "attendance",
-  "odoo",
-  "other",
-];
-const KB_CATEGORY_OPTIONS = KB_CATEGORY_VALUES.map((value) => ({
-  value,
-  label: MIS_TICKET_CATEGORIES.find((item) => item.value === value)?.label ?? value,
-}));
 
 export const Route = createFileRoute("/_authenticated/kb/")({
   head: () => ({
@@ -81,7 +62,7 @@ function createSlug(value: string) {
 
 type ArticleForm = {
   title: string;
-  category: KbCategory;
+  category: string;
   content: string;
   published: boolean;
 };
@@ -93,6 +74,7 @@ function KBList() {
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
   const [role, setRole] = useState<AppRole>("employee");
+  const [categories, setCategories] = useState<TicketCategoryOption[]>(MIS_TICKET_CATEGORIES);
   const [formMode, setFormMode] = useState<"closed" | "create" | string>("closed");
   const [form, setForm] = useState<ArticleForm>(emptyForm);
   const [saving, setSaving] = useState(false);
@@ -106,6 +88,9 @@ function KBList() {
     if (currentRole !== "admin") query = query.eq("published", true);
     const { data } = await query;
     setArticles(data ?? []);
+    if (currentRole === "admin") {
+      void loadTicketCategories().then(setCategories);
+    }
     setLoading(false);
   };
 
@@ -272,13 +257,13 @@ function KBList() {
               <Label>Category</Label>
               <Select
                 value={form.category}
-                onValueChange={(value) => setForm((f) => ({ ...f, category: value as KbCategory }))}
+                onValueChange={(value) => setForm((f) => ({ ...f, category: value }))}
               >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {KB_CATEGORY_OPTIONS.map((c) => (
+                  {categories.map((c) => (
                     <SelectItem key={c.value} value={c.value}>
                       {c.label}
                     </SelectItem>
@@ -353,7 +338,7 @@ function KBList() {
           {Object.entries(grouped).map(([cat, list]) => (
             <section key={cat}>
               <h2 className="mb-2 text-xs font-bold uppercase tracking-widest text-muted-foreground">
-                {cat}
+                {getCategoryLabel(cat, categories)}
               </h2>
               <div className="grid gap-3 sm:grid-cols-2">
                 {list.map((a) => (
