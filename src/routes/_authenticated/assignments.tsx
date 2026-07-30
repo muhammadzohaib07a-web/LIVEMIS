@@ -1,7 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { AppShell } from "@/components/AppShell";
 import {
   AdminAssignmentSummary,
   type AssignmentAgent,
@@ -132,8 +131,8 @@ function AssignmentSummaryPage() {
   }, [navigate]);
 
   return (
-    <AppShell>
+    <>
       <AdminAssignmentSummary tickets={tickets} people={people} agents={agents} loading={loading} />
-    </AppShell>
+    </>
   );
 }

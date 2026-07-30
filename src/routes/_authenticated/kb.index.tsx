@@ -1,7 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { AppShell } from "@/components/AppShell";
 import { Input } from "@/components/ui/input";
 import { Search, BookOpen, ChevronRight, Loader2 } from "lucide-react";
 import type { Database } from "@/integrations/supabase/types";
@@ -50,7 +49,7 @@ function KBList() {
   }, [articles, q]);
 
   return (
-    <AppShell>
+    <>
       <div className="mb-6">
         <p className="text-sm text-muted-foreground">Self-help</p>
         <h1 className="text-3xl font-black tracking-tight sm:text-4xl">
@@ -112,6 +111,6 @@ function KBList() {
           ))}
         </div>
       )}
-    </AppShell>
+    </>
   );
 }

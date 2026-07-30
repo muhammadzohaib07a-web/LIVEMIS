@@ -15,7 +15,6 @@ import {
   UsersRound,
 } from "lucide-react";
 import { toast } from "sonner";
-import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -330,7 +329,7 @@ function UserManagementPage() {
   };
 
   return (
-    <AppShell>
+    <>
       <div className="mb-7 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
         <div>
           <p className="text-sm font-medium text-primary">MIS Head administration</p>
@@ -734,6 +733,6 @@ function UserManagementPage() {
           </div>
         )}
       </div>
-    </AppShell>
+    </>
   );
 }

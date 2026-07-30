@@ -1,7 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -641,17 +640,17 @@ function TicketDetail() {
 
   if (loading) {
     return (
-      <AppShell>
+      <>
         <div className="flex items-center justify-center py-24">
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
         </div>
-      </AppShell>
+      </>
     );
   }
 
   if (!ticket) {
     return (
-      <AppShell>
+      <>
         <div className="mx-auto max-w-md py-16 text-center">
           <h1 className="text-2xl font-bold">Ticket not found</h1>
           <p className="mt-2 text-sm text-muted-foreground">It may have been removed.</p>
@@ -659,7 +658,7 @@ function TicketDetail() {
             Back to tickets
           </Button>
         </div>
-      </AppShell>
+      </>
     );
   }
 
@@ -678,7 +677,7 @@ function TicketDetail() {
     role === "employee" && ticket.user_id === me && ticket.status === "closed";
 
   return (
-    <AppShell>
+    <>
       <Link
         to="/tickets"
         className="mb-4 inline-flex items-center gap-1.5 text-sm text-muted-foreground transition hover:text-foreground"
@@ -1067,6 +1066,6 @@ function TicketDetail() {
           </div>
         </aside>
       </div>
-    </AppShell>
+    </>
   );
 }

@@ -16,7 +16,6 @@ import {
   Legend,
 } from "recharts";
 import { supabase } from "@/integrations/supabase/client";
-import { AppShell } from "@/components/AppShell";
 import {
   Ticket,
   MessageSquare,
@@ -335,7 +334,7 @@ function Dashboard() {
         : "My recent tickets";
 
   return (
-    <AppShell>
+    <>
       <div className="mb-8 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
         <div>
           <h1 className="text-3xl font-black tracking-tight sm:text-4xl">
@@ -612,7 +611,7 @@ function Dashboard() {
           </div>
         </aside>
       </div>
-    </AppShell>
+    </>
   );
 }
 

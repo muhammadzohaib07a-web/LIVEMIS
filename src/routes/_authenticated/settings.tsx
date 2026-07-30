@@ -2,7 +2,6 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { Building2, CheckCircle2, Layers3, Loader2, Plus, Power, Settings2 } from "lucide-react";
 import { toast } from "sonner";
-import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -276,7 +275,7 @@ function MasterSetupPage() {
   };
 
   return (
-    <AppShell>
+    <>
       <div className="mb-7">
         <p className="text-sm font-semibold text-primary">Admin control</p>
         <h1 className="flex items-center gap-3 text-3xl font-black tracking-tight sm:text-4xl">
@@ -473,6 +472,6 @@ function MasterSetupPage() {
           </section>
         </div>
       )}
-    </AppShell>
+    </>
   );
 }

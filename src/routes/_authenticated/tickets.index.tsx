@@ -1,7 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { AppShell } from "@/components/AppShell";
 import type { Database } from "@/integrations/supabase/types";
 import { PlusCircle, Search, Loader2, ChevronRight, Inbox } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -205,7 +204,7 @@ function TicketsList() {
   });
 
   return (
-    <AppShell>
+    <>
       <div className="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
         <div>
           <p className="text-sm text-muted-foreground">
@@ -359,6 +358,6 @@ function TicketsList() {
           </ul>
         )}
       </div>
-    </AppShell>
+    </>
   );
 }

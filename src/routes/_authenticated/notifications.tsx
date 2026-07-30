@@ -1,7 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { AppShell } from "@/components/AppShell";
 import { Bell, Check, Loader2, Sparkles } from "lucide-react";
 import type { Database } from "@/integrations/supabase/types";
 import { Button } from "@/components/ui/button";
@@ -112,7 +111,7 @@ function NotificationsPage() {
   const unread = items.filter((i) => !i.read).length;
 
   return (
-    <AppShell>
+    <>
       <div className="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
         <div>
           <p className="text-sm text-muted-foreground">Inbox</p>
@@ -186,6 +185,6 @@ function NotificationsPage() {
           </ul>
         )}
       </div>
-    </AppShell>
+    </>
   );
 }

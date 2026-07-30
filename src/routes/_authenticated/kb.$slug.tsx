@@ -1,7 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { AppShell } from "@/components/AppShell";
 import { ArrowLeft, BookOpen, Loader2, PlusCircle } from "lucide-react";
 import type { Database } from "@/integrations/supabase/types";
 import { Button } from "@/components/ui/button";
@@ -42,29 +41,29 @@ function KBArticle() {
 
   if (loading) {
     return (
-      <AppShell>
+      <>
         <div className="flex items-center justify-center py-24">
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
         </div>
-      </AppShell>
+      </>
     );
   }
 
   if (!article) {
     return (
-      <AppShell>
+      <>
         <div className="mx-auto max-w-md py-16 text-center">
           <h1 className="text-2xl font-bold">Article not found</h1>
           <Button className="mt-6" onClick={() => navigate({ to: "/kb" })}>
             Back to Knowledge Base
           </Button>
         </div>
-      </AppShell>
+      </>
     );
   }
 
   return (
-    <AppShell>
+    <>
       <Link
         to="/kb"
         className="mb-4 inline-flex items-center gap-1.5 text-sm text-muted-foreground transition hover:text-foreground"
@@ -95,6 +94,6 @@ function KBArticle() {
           </Link>
         </div>
       </article>
-    </AppShell>
+    </>
   );
 }

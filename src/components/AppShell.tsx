@@ -1,5 +1,5 @@
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import {
   LayoutDashboard,
@@ -48,6 +48,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
   const [role, setRole] = useState<AppRole>("employee");
   const [theme, setTheme] = useState<AppTheme>("light");
+  const userIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     let notificationChannel: ReturnType<typeof supabase.channel> | BroadcastChannel | null = null;
@@ -56,6 +57,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     (async () => {
       const context = await getCurrentUserContext();
       if (!context) return;
+      userIdRef.current = context.id;
       setRole(context.role);
       setProfile({
         full_name: context.fullName,
@@ -105,6 +107,24 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         supabase.removeChannel(notificationChannel);
       }
     };
+  }, []);
+
+  // Re-sync just the unread count on navigation (e.g. after marking notifications
+  // read on /notifications) without re-fetching the profile or the realtime channel.
+  useEffect(() => {
+    const userId = userIdRef.current;
+    if (!userId) return;
+    if (isPreviewMode()) {
+      setUnread(
+        getPreviewNotifications(userId).filter((notification) => !notification.read).length,
+      );
+      return;
+    }
+    void supabase
+      .from("notifications")
+      .select("id", { count: "exact", head: true })
+      .eq("read", false)
+      .then(({ count }) => setUnread(count ?? 0));
   }, [pathname]);
 
   const signOut = async () => {
