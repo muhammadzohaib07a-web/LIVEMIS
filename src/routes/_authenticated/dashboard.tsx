@@ -660,7 +660,10 @@ function Dashboard() {
                     </div>
                     <p className="mt-1 truncate text-sm font-medium">{t.title}</p>
                     <p className="text-xs text-muted-foreground">
-                      {t.category} · Updated {new Date(t.updated_at).toLocaleString()}
+                      {t.category} ·{" "}
+                      {normalizedTicketStatus(t.status) === "closed" && t.closed_at
+                        ? `Closed ${new Date(t.closed_at).toLocaleString()}`
+                        : `Updated ${new Date(t.updated_at).toLocaleString()}`}
                     </p>
                   </div>
                   <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />

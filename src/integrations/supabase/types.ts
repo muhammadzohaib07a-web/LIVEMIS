@@ -216,6 +216,7 @@ export type Database = {
           assignee_id: string | null;
           attachments: Json;
           category: string;
+          closed_at: string | null;
           created_at: string;
           description: string;
           follow_up_reason: string | null;
@@ -232,6 +233,7 @@ export type Database = {
           assignee_id?: string | null;
           attachments?: Json;
           category?: string;
+          closed_at?: string | null;
           created_at?: string;
           description: string;
           follow_up_reason?: string | null;
@@ -248,6 +250,7 @@ export type Database = {
           assignee_id?: string | null;
           attachments?: Json;
           category?: string;
+          closed_at?: string | null;
           created_at?: string;
           description?: string;
           follow_up_reason?: string | null;

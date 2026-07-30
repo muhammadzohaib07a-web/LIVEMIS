@@ -650,7 +650,12 @@ function TicketDetail() {
     if (!canManage && !canGiveCustomerFeedback) return;
     const previousStatus = ticket?.status;
     if (isPreviewMode()) {
-      const update = { id, status: s, updated_at: new Date().toISOString() };
+      const update = {
+        id,
+        status: s,
+        closed_at: s === "closed" || s === "resolved" ? new Date().toISOString() : null,
+        updated_at: new Date().toISOString(),
+      };
       setTicket((current) => (current ? { ...current, ...update } : current));
       storePreviewTicketUpdate(id, update);
       previewTicketChannelRef.current?.postMessage(update);
@@ -706,6 +711,7 @@ function TicketDetail() {
         priority: ticket.priority,
         status: "open",
         attachments: [],
+        closed_at: null,
         created_at: createdAt,
         updated_at: createdAt,
       };
@@ -937,6 +943,7 @@ function TicketDetail() {
             )}
             <p className="mt-4 text-xs text-muted-foreground">
               Opened {new Date(ticket.created_at).toLocaleString()}
+              {ticket.closed_at && <> · Closed {new Date(ticket.closed_at).toLocaleString()}</>}
             </p>
             {isMisStaff(role) && (
               <div className="mt-4 flex flex-wrap gap-3 rounded-xl border border-border/60 bg-background/40 p-3 text-xs">
@@ -1355,6 +1362,11 @@ function TicketDetail() {
             >
               <StatusIcon className="h-3.5 w-3.5" /> Current: {sm.label}
             </div>
+            {ticket.closed_at && (
+              <p className="mt-2 text-[10px] text-muted-foreground">
+                Closed on {new Date(ticket.closed_at).toLocaleString()}
+              </p>
+            )}
             {canManageStatus && nextStatuses.length > 0 && (
               <div className="mt-3">
                 <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">

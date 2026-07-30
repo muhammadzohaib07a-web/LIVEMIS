@@ -234,6 +234,7 @@ function ReportPage() {
           : [],
         parent_ticket_id: null,
         follow_up_reason: null,
+        closed_at: null,
         created_at: createdAt,
         updated_at: createdAt,
       };
