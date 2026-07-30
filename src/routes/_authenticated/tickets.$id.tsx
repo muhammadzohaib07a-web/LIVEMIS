@@ -873,7 +873,7 @@ function TicketDetail() {
         <ArrowLeft className="h-4 w-4" /> Back to tickets
       </Link>
 
-      <div className="gap-6 lg:flex lg:h-[calc(100vh-10rem)]">
+      <div className="gap-6 lg:flex lg:h-[calc(100vh-12rem)]">
         <div className="space-y-6 lg:w-[42%] lg:min-w-0 lg:overflow-y-auto lg:pr-1">
           <div className="rounded-2xl border border-border/60 bg-surface/40 p-6 backdrop-blur">
             <div className="mb-3 flex flex-wrap items-center gap-2">

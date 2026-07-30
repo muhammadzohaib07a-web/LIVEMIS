@@ -40,6 +40,12 @@ const nav = [
   { to: "/settings", label: "Master Setup", icon: Settings2 },
 ] as const;
 
+// The ticket detail page (chat split pane) wants the full content width —
+// every other page keeps the centered max-w-7xl reading width.
+function isTicketDetailPage(pathname: string) {
+  return /^\/tickets\/[^/]+$/.test(pathname);
+}
+
 export function AppShell({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
@@ -223,7 +229,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </button>
           </div>
         </header>
-        <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-10">{children}</main>
+        <main
+          className={`mx-auto px-4 py-8 sm:px-6 sm:py-10 ${
+            isTicketDetailPage(pathname) ? "max-w-none" : "max-w-7xl"
+          }`}
+        >
+          {children}
+        </main>
       </div>
     </div>
   );
