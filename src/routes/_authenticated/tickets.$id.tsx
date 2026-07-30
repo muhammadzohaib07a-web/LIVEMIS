@@ -874,7 +874,7 @@ function TicketDetail() {
       </Link>
 
       <div className="gap-6 lg:flex lg:h-[calc(100vh-9.5rem)]">
-        <div className="space-y-6 lg:w-[70%] lg:min-w-0 lg:overflow-y-auto lg:pr-1">
+        <div className="space-y-6 lg:w-[60%] lg:min-w-0 lg:overflow-y-auto lg:pr-1">
           <div className="rounded-2xl border border-border/60 bg-surface/40 p-6 backdrop-blur">
             <div className="mb-3 flex flex-wrap items-center gap-2">
               <span className="font-mono text-xs text-muted-foreground">{ticket.ticket_no}</span>
@@ -1150,7 +1150,7 @@ function TicketDetail() {
 
         {/* Chat: fixed in place on desktop (lg:h-full inside the fixed-height flex row
             above) — only its own message list scrolls; the left column scrolls on its own. */}
-        <div className="mt-6 flex h-[480px] flex-col rounded-2xl border border-border/60 bg-surface/40 backdrop-blur lg:mt-0 lg:h-full lg:w-[30%] lg:min-w-0">
+        <div className="mt-6 flex h-[480px] flex-col rounded-2xl border border-border/60 bg-surface/40 backdrop-blur lg:mt-0 lg:h-full lg:w-[40%] lg:min-w-0">
             <div className="flex items-center justify-between border-b border-border/60 px-5 py-3">
               <h2 className="text-sm font-semibold">Conversation</h2>
               <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
