@@ -40,10 +40,11 @@ const nav = [
   { to: "/settings", label: "Master Setup", icon: Settings2 },
 ] as const;
 
-// The ticket detail page (chat split pane) wants the full content width —
-// every other page keeps the centered max-w-7xl reading width.
-function isTicketDetailPage(pathname: string) {
-  return /^\/tickets\/[^/]+$/.test(pathname);
+// The ticket detail page (chat split pane) and the Knowledge Base list want
+// the full content width — every other page keeps the centered max-w-7xl
+// reading width.
+function usesFullWidthLayout(pathname: string) {
+  return /^\/tickets\/[^/]+$/.test(pathname) || pathname === "/kb";
 }
 
 export function AppShell({ children }: { children: React.ReactNode }) {
@@ -231,9 +232,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </header>
         <main
           className={
-            isTicketDetailPage(pathname)
+            /^\/tickets\/[^/]+$/.test(pathname)
               ? "mx-auto max-w-none px-4 py-4 sm:px-6 sm:py-5"
-              : "mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-10"
+              : usesFullWidthLayout(pathname)
+                ? "mx-auto max-w-none px-4 py-8 sm:px-6 sm:py-10"
+                : "mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-10"
           }
         >
           {children}

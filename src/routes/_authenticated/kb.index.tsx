@@ -340,7 +340,7 @@ function KBList() {
               <h2 className="mb-2 text-xs font-bold uppercase tracking-widest text-muted-foreground">
                 {getCategoryLabel(cat, categories)}
               </h2>
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                 {list.map((a) => (
                   <div
                     key={a.id}
