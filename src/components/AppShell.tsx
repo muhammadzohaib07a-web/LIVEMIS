@@ -14,6 +14,7 @@ import {
   Sun,
   UsersRound,
   Settings2,
+  ClipboardList,
 } from "lucide-react";
 import { BrandLogo } from "@/components/BrandLogo";
 import { toast } from "sonner";
@@ -30,6 +31,7 @@ type Profile = {
 
 const nav = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { to: "/assignments", label: "MIS Assignment Summary", icon: ClipboardList },
   { to: "/tickets", label: "My Tickets", icon: Ticket },
   { to: "/report", label: "Report Problem", icon: PlusCircle },
   { to: "/kb", label: "Knowledge Base", icon: BookOpen },
@@ -219,7 +221,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }) {
     const visibleNav = nav.filter((item) => {
       if (item.to === "/report") return !isMisStaff(role);
-      if (item.to === "/users" || item.to === "/settings") return role === "admin";
+      if (item.to === "/assignments" || item.to === "/users" || item.to === "/settings")
+        return role === "admin";
       return true;
     });
     return (

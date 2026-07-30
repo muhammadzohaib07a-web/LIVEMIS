@@ -18,11 +18,6 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { AppShell } from "@/components/AppShell";
 import {
-  AdminAssignmentSummary,
-  type AssignmentAgent,
-  type AssignmentPerson,
-} from "@/components/AdminAssignmentSummary";
-import {
   Ticket,
   MessageSquare,
   BookOpen,
@@ -39,8 +34,6 @@ import { isPreviewMode } from "@/lib/preview-auth";
 import { getCurrentUserContext, isMisStaff, type AppRole } from "@/lib/current-user";
 import {
   getCurrentPreviewTickets,
-  previewAgents,
-  previewRequesters,
   PREVIEW_CREATED_TICKETS_KEY,
   PREVIEW_TICKET_STORAGE_KEY,
 } from "@/lib/preview-data";
@@ -91,8 +84,6 @@ function Dashboard() {
   const [tickets, setTickets] = useState<TicketRow[]>([]);
   const [role, setRole] = useState<AppRole>("employee");
   const [loadingTickets, setLoadingTickets] = useState(true);
-  const [assignmentPeople, setAssignmentPeople] = useState<Record<string, AssignmentPerson>>({});
-  const [assignmentAgents, setAssignmentAgents] = useState<AssignmentAgent[]>([]);
 
   useEffect(() => {
     let ticketChannel: ReturnType<typeof supabase.channel> | null = null;
@@ -114,22 +105,6 @@ function Dashboard() {
         email: context.email,
       });
       if (isPreviewMode()) {
-        if (context.role === "admin") {
-          setAssignmentPeople({
-            ...previewRequesters,
-            ...Object.fromEntries(
-              previewAgents.map((agent) => [
-                agent.id,
-                {
-                  full_name: agent.full_name,
-                  email: agent.email,
-                  department: "MIS",
-                },
-              ]),
-            ),
-          });
-          setAssignmentAgents(previewAgents);
-        }
         const refreshPreview = () => {
           setTickets(ticketsVisibleTo(context.role, context.id, getCurrentPreviewTickets()));
         };
@@ -156,26 +131,6 @@ function Dashboard() {
       }
       const { data: t } = await query;
       setTickets(t ?? []);
-
-      if (context.role === "admin") {
-        const [{ data: profileRows }, { data: agentRows }] = await Promise.all([
-          supabase.from("profiles").select("id, full_name, email, department"),
-          supabase.rpc("list_mis_agents"),
-        ]);
-        setAssignmentPeople(
-          Object.fromEntries(
-            (profileRows ?? []).map((person) => [
-              person.id,
-              {
-                full_name: person.full_name,
-                email: person.email,
-                department: person.department,
-              },
-            ]),
-          ),
-        );
-        setAssignmentAgents(agentRows ?? []);
-      }
       setLoadingTickets(false);
 
       ticketChannel = supabase
@@ -437,15 +392,6 @@ function Dashboard() {
           );
         })}
       </div>
-
-      {role === "admin" && (
-        <AdminAssignmentSummary
-          tickets={tickets}
-          people={assignmentPeople}
-          agents={assignmentAgents}
-          loading={loadingTickets}
-        />
-      )}
 
       {(activeStatus || activeCategory) && (
         <div className="mt-4 flex flex-wrap items-center gap-2 text-xs">
