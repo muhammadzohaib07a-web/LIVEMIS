@@ -84,6 +84,7 @@ export const previewMessages: Record<string, Message[]> = {
       ticket_id: "demo-ticket-2",
       sender_id: "preview-employee-quality",
       body: "The printer stopped working after this morning's Windows update.",
+      attachments: [],
       created_at: new Date(now.getTime() - 2 * 60 * 60_000).toISOString(),
     },
     {
@@ -91,6 +92,7 @@ export const previewMessages: Record<string, Message[]> = {
       ticket_id: "demo-ticket-2",
       sender_id: "preview-agent-1",
       body: "MIS is checking the print spooler and network connection now.",
+      attachments: [],
       created_at: new Date(now.getTime() - 35 * 60_000).toISOString(),
     },
   ],

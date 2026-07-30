@@ -10,6 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import type { Database } from "@/integrations/supabase/types";
 import {
   ArrowLeft,
@@ -25,6 +26,10 @@ import {
   MessageCircle,
   RotateCcw,
   XCircle,
+  Smile,
+  AtSign,
+  Paperclip,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { getCurrentUserContext, isMisStaff, type AppRole } from "@/lib/current-user";
@@ -49,6 +54,29 @@ import {
   MIS_STATUS_TRANSITIONS,
   TICKET_STATUS_LABELS,
 } from "@/lib/ticket-status";
+import { mentionOptionsForRole } from "@/lib/mentions";
+
+const QUICK_EMOJIS = [
+  "👍", "👎", "😀", "😂", "😊", "🙏", "👏", "🎉",
+  "✅", "❌", "🔥", "💯", "😢", "😡", "🤔", "👀",
+  "🚀", "⚠️", "📌", "⏰", "💡", "🙌", "🤝", "😅",
+  "🛠️", "📎", "📄", "🔧", "💻", "🖨️", "📊", "🧾",
+];
+
+const CHAT_ATTACHMENT_MAX_SIZE = 10 * 1024 * 1024; // 10MB, matches storage bucket limit
+const CHAT_ATTACHMENT_TYPES = [
+  "image/png",
+  "image/jpeg",
+  "image/webp",
+  "image/gif",
+  "application/pdf",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.ms-excel",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "text/plain",
+  "application/zip",
+];
 
 type Ticket = Database["public"]["Tables"]["tickets"]["Row"];
 type Message = Database["public"]["Tables"]["ticket_messages"]["Row"];
@@ -84,6 +112,27 @@ function getTicketAttachments(value: unknown): TicketAttachment[] {
       typeof (item as TicketAttachment).type === "string" &&
       typeof (item as TicketAttachment).size === "number",
   );
+}
+
+const MENTION_TAGS = ["@Everyone", "@Admin", "@Employee", "@Team"];
+
+function renderMessageBody(body: string, mine: boolean) {
+  return body
+    .split(/(@Everyone|@Admin|@Employee|@Team)/g)
+    .map((part, index) =>
+      MENTION_TAGS.includes(part) ? (
+        <span
+          key={index}
+          className={`font-semibold underline decoration-2 underline-offset-2 ${
+            mine ? "text-primary-foreground" : "text-primary"
+          }`}
+        >
+          {part}
+        </span>
+      ) : (
+        <span key={index}>{part}</span>
+      ),
+    );
 }
 
 export const Route = createFileRoute("/_authenticated/tickets/$id")({
@@ -161,9 +210,14 @@ function TicketDetail() {
   const [showFollowUp, setShowFollowUp] = useState(false);
   const [creatingFollowUp, setCreatingFollowUp] = useState(false);
   const [attachmentUrls, setAttachmentUrls] = useState<Record<string, string>>({});
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  const [messageAttachmentUrls, setMessageAttachmentUrls] = useState<Record<string, string>>({});
   const scrollRef = useRef<HTMLDivElement>(null);
   const previewChannelRef = useRef<BroadcastChannel | null>(null);
   const previewTicketChannelRef = useRef<BroadcastChannel | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const resolvedAttachmentPaths = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     if (isPreviewMode()) {
@@ -427,18 +481,90 @@ function TicketDetail() {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages]);
 
+  // Chat attachments carry a storage `path` (private bucket); resolve each newly
+  // seen one to a signed URL once and cache it, instead of re-signing on every
+  // new message. Preview-mode attachments already carry a ready-to-use data_url.
+  useEffect(() => {
+    if (isPreviewMode()) return;
+    const newPaths = messages
+      .flatMap((m) => getTicketAttachments(m.attachments))
+      .map((attachment) => attachment.path)
+      .filter((path): path is string => !!path && !resolvedAttachmentPaths.current.has(path));
+    if (newPaths.length === 0) return;
+    newPaths.forEach((path) => resolvedAttachmentPaths.current.add(path));
+    let active = true;
+    void Promise.all(
+      newPaths.map(async (path) => {
+        const { data } = await supabase.storage.from("ticket-attachments").createSignedUrl(path, 3600);
+        return [path, data?.signedUrl] as const;
+      }),
+    ).then((entries) => {
+      if (!active) return;
+      setMessageAttachmentUrls((current) => ({
+        ...current,
+        ...Object.fromEntries(entries.filter((entry): entry is [string, string] => Boolean(entry[1]))),
+      }));
+    });
+    return () => {
+      active = false;
+    };
+  }, [messages]);
+
+  const insertAtCursor = (text: string) => {
+    const textarea = textareaRef.current;
+    if (!textarea) {
+      setBody((current) => `${current}${text}`);
+      return;
+    }
+    const start = textarea.selectionStart ?? body.length;
+    const end = textarea.selectionEnd ?? body.length;
+    const next = `${body.slice(0, start)}${text}${body.slice(end)}`;
+    setBody(next);
+    requestAnimationFrame(() => {
+      textarea.focus();
+      const caret = start + text.length;
+      textarea.setSelectionRange(caret, caret);
+    });
+  };
+
+  const handleFilesSelected = (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    const accepted: File[] = [];
+    for (const file of Array.from(files)) {
+      if (!CHAT_ATTACHMENT_TYPES.includes(file.type)) {
+        toast.error(`${file.name}: unsupported file type`);
+        continue;
+      }
+      if (file.size > CHAT_ATTACHMENT_MAX_SIZE) {
+        toast.error(`${file.name}: file is larger than 10MB`);
+        continue;
+      }
+      accepted.push(file);
+    }
+    if (accepted.length > 0) setPendingFiles((current) => [...current, ...accepted]);
+  };
+
   const send = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!body.trim() || !me) return;
-    setSending(true);
     const text = body.trim();
+    if ((!text && pendingFiles.length === 0) || !me) return;
+    setSending(true);
     setBody("");
+    const filesToSend = pendingFiles;
+    setPendingFiles([]);
     if (isPreviewMode()) {
+      const attachments: TicketAttachment[] = filesToSend.map((file) => ({
+        name: file.name,
+        type: file.type,
+        size: file.size,
+        data_url: URL.createObjectURL(file),
+      }));
       const message: Message = {
         id: `preview-message-${Date.now()}`,
         ticket_id: id,
         sender_id: me,
         body: text,
+        attachments,
         created_at: new Date().toISOString(),
       };
       setMessages((current) => [...current, message]);
@@ -447,15 +573,30 @@ function TicketDetail() {
       setSending(false);
       return;
     }
+    const attachments: TicketAttachment[] = [];
+    for (const file of filesToSend) {
+      const safeName = file.name.replace(/[^a-z0-9._-]+/gi, "-");
+      const path = `${me}/${crypto.randomUUID()}-${safeName}`;
+      const { error: uploadError } = await supabase.storage
+        .from("ticket-attachments")
+        .upload(path, file, { contentType: file.type, upsert: false });
+      if (uploadError) {
+        toast.error(`${file.name} upload failed: ${uploadError.message}`);
+        continue;
+      }
+      attachments.push({ name: file.name, type: file.type, size: file.size, path });
+    }
     const { error } = await supabase.from("ticket_messages").insert({
       ticket_id: id,
       sender_id: me,
       body: text,
+      attachments,
     });
     setSending(false);
     if (error) {
       toast.error(error.message);
       setBody(text);
+      setPendingFiles(filesToSend);
     }
   };
 
@@ -476,6 +617,7 @@ function TicketDetail() {
         ticket_id: id,
         sender_id: me,
         body: confirmation,
+        attachments: [],
         created_at: new Date().toISOString(),
       };
       setMessages((current) => [...current, message]);
@@ -518,6 +660,7 @@ function TicketDetail() {
           ticket_id: id,
           sender_id: me ?? ticket?.user_id ?? "preview-employee",
           body: formatStatusChangeMessage(previousStatus, s),
+          attachments: [],
           created_at: new Date().toISOString(),
         };
         setMessages((current) => [...current, statusMessage]);
@@ -621,6 +764,7 @@ function TicketDetail() {
           ticket_id: id,
           sender_id: me ?? ticket?.user_id ?? "preview-employee",
           body: formatStatusChangeMessage(ticket.status, nextStatus),
+          attachments: [],
           created_at: new Date().toISOString(),
         };
         setMessages((current) => [...current, statusMessage]);
@@ -712,6 +856,7 @@ function TicketDetail() {
   );
   const canCreateFollowUp =
     role === "employee" && ticket.user_id === me && ticket.status === "closed";
+  const mentionOptions = mentionOptionsForRole(role, requester?.full_name ?? requester?.email ?? null);
 
   return (
     <>
@@ -985,7 +1130,46 @@ function TicketDetail() {
                             {senderRoleLabel}
                           </span>
                         </div>
-                        <p className="whitespace-pre-wrap">{m.body}</p>
+                        {m.body && (
+                          <p className="whitespace-pre-wrap">{renderMessageBody(m.body, mine)}</p>
+                        )}
+                        {getTicketAttachments(m.attachments).length > 0 && (
+                          <div className="mt-2 space-y-1.5">
+                            {getTicketAttachments(m.attachments).map((attachment) => {
+                              const url =
+                                attachment.data_url ??
+                                (attachment.path ? messageAttachmentUrls[attachment.path] : undefined);
+                              const isImage = attachment.type.startsWith("image/");
+                              return (
+                                <a
+                                  key={attachment.path ?? attachment.name}
+                                  href={url}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className={`flex items-center gap-2 rounded-lg border px-2.5 py-2 text-xs transition hover:opacity-80 ${
+                                    mine
+                                      ? "border-primary-foreground/25 bg-background/10"
+                                      : "border-border bg-muted/30"
+                                  }`}
+                                >
+                                  {isImage && url ? (
+                                    <img
+                                      src={url}
+                                      alt={attachment.name}
+                                      className="h-9 w-9 shrink-0 rounded object-cover"
+                                    />
+                                  ) : (
+                                    <Paperclip className="h-4 w-4 shrink-0" />
+                                  )}
+                                  <span className="min-w-0 flex-1 truncate">{attachment.name}</span>
+                                  <span className="shrink-0 opacity-70">
+                                    {Math.max(1, Math.round(attachment.size / 1024))} KB
+                                  </span>
+                                </a>
+                              );
+                            })}
+                          </div>
+                        )}
                         <p
                           className={`mt-1 text-[10px] ${
                             mine ? "text-primary-foreground/70" : "text-muted-foreground"
@@ -1002,28 +1186,131 @@ function TicketDetail() {
                 })
               )}
             </div>
-            <form onSubmit={send} className="flex items-end gap-2 border-t border-border/60 p-3">
-              <Textarea
-                rows={1}
-                value={body}
-                onChange={(e) => setBody(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault();
-                    send(e as unknown as React.FormEvent);
-                  }
-                }}
-                placeholder="Type a message…"
-                className="min-h-[42px] resize-none"
-                maxLength={1000}
-              />
-              <Button type="submit" disabled={sending || !body.trim()} className="h-[42px]">
-                {sending ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Send className="h-4 w-4" />
-                )}
-              </Button>
+            <form onSubmit={send} className="border-t border-border/60 p-3">
+              {pendingFiles.length > 0 && (
+                <div className="mb-2 flex flex-wrap gap-2">
+                  {pendingFiles.map((file, index) => (
+                    <span
+                      key={`${file.name}-${index}`}
+                      className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/40 px-2.5 py-1 text-xs"
+                    >
+                      <Paperclip className="h-3 w-3" /> {file.name}
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setPendingFiles((current) => current.filter((_, i) => i !== index))
+                        }
+                        className="text-muted-foreground hover:text-foreground"
+                        aria-label={`Remove ${file.name}`}
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+              <div className="flex items-end gap-2">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  multiple
+                  hidden
+                  accept={CHAT_ATTACHMENT_TYPES.join(",")}
+                  onChange={(e) => {
+                    handleFilesSelected(e.target.files);
+                    e.target.value = "";
+                  }}
+                />
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      className="h-[42px] w-[42px] shrink-0"
+                      aria-label="Add emoji"
+                    >
+                      <Smile className="h-4 w-4" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-64 p-2">
+                    <div className="grid grid-cols-8 gap-1">
+                      {QUICK_EMOJIS.map((emoji) => (
+                        <button
+                          key={emoji}
+                          type="button"
+                          onClick={() => insertAtCursor(emoji)}
+                          className="rounded p-1.5 text-lg hover:bg-muted"
+                        >
+                          {emoji}
+                        </button>
+                      ))}
+                    </div>
+                  </PopoverContent>
+                </Popover>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      className="h-[42px] w-[42px] shrink-0"
+                      aria-label="Mention someone"
+                    >
+                      <AtSign className="h-4 w-4" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-56 p-1">
+                    {mentionOptions.map((option) => (
+                      <button
+                        key={option.tag}
+                        type="button"
+                        onClick={() => insertAtCursor(`${option.tag} `)}
+                        className="flex w-full items-center justify-between gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-muted"
+                      >
+                        <span className="font-semibold text-primary">{option.tag}</span>
+                        <span className="truncate text-xs text-muted-foreground">{option.label}</span>
+                      </button>
+                    ))}
+                  </PopoverContent>
+                </Popover>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="h-[42px] w-[42px] shrink-0"
+                  aria-label="Attach a file"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <Paperclip className="h-4 w-4" />
+                </Button>
+                <Textarea
+                  ref={textareaRef}
+                  rows={1}
+                  value={body}
+                  onChange={(e) => setBody(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      send(e as unknown as React.FormEvent);
+                    }
+                  }}
+                  placeholder="Type a message…"
+                  className="min-h-[42px] resize-none"
+                  maxLength={1000}
+                />
+                <Button
+                  type="submit"
+                  disabled={sending || (!body.trim() && pendingFiles.length === 0)}
+                  className="h-[42px]"
+                >
+                  {sending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Send className="h-4 w-4" />
+                  )}
+                </Button>
+              </div>
             </form>
           </div>
         </section>
