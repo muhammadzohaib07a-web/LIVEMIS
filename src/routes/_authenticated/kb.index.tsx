@@ -98,15 +98,22 @@ function KBList() {
     void loadArticles();
   }, []);
 
-  const grouped = useMemo(() => {
-    const filtered = articles.filter((a) =>
-      !q ? true : (a.title + " " + a.content).toLowerCase().includes(q.toLowerCase()),
-    );
-    return filtered.reduce<Record<string, Article[]>>((acc, a) => {
-      (acc[a.category] ??= []).push(a);
-      return acc;
-    }, {});
-  }, [articles, q]);
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
+
+  const filtered = useMemo(
+    () =>
+      articles.filter((a) => {
+        if (categoryFilter !== "all" && a.category !== categoryFilter) return false;
+        if (!q) return true;
+        return (a.title + " " + a.content).toLowerCase().includes(q.toLowerCase());
+      }),
+    [articles, q, categoryFilter],
+  );
+
+  const presentCategories = useMemo(
+    () => [...new Set(articles.map((a) => a.category))],
+    [articles],
+  );
 
   const startCreate = () => {
     setForm(emptyForm);
@@ -314,98 +321,108 @@ function KBList() {
         </form>
       )}
 
-      <div className="relative mb-6">
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="Search articles…"
-          className="pl-9"
-        />
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row">
+        <div className="relative flex-1">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Search articles…"
+            className="pl-9"
+          />
+        </div>
+        <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+          <SelectTrigger className="sm:w-64">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All categories ({articles.length})</SelectItem>
+            {presentCategories.map((cat) => (
+              <SelectItem key={cat} value={cat}>
+                {getCategoryLabel(cat, categories)} (
+                {articles.filter((a) => a.category === cat).length})
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       {loading ? (
         <div className="flex items-center justify-center py-16">
           <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
         </div>
-      ) : Object.keys(grouped).length === 0 ? (
+      ) : filtered.length === 0 ? (
         <div className="rounded-2xl border border-border/60 bg-surface/40 py-16 text-center backdrop-blur">
           <BookOpen className="mx-auto h-8 w-8 text-muted-foreground" />
           <p className="mt-3 text-sm text-muted-foreground">No articles match your search.</p>
         </div>
       ) : (
-        <div className="space-y-6">
-          {Object.entries(grouped).map(([cat, list]) => (
-            <section key={cat}>
-              <h2 className="mb-2 text-xs font-bold uppercase tracking-widest text-muted-foreground">
-                {getCategoryLabel(cat, categories)}
-              </h2>
-              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                {list.map((a) => (
-                  <div
-                    key={a.id}
-                    className="overflow-hidden rounded-2xl border border-border/60 bg-surface/60 backdrop-blur transition hover:border-primary/50"
-                  >
-                    <Link
-                      to="/kb/$slug"
-                      params={{ slug: a.slug }}
-                      className="group flex items-start gap-3 p-4 transition hover:bg-surface"
-                    >
-                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-primary text-primary-foreground shadow-elegant">
-                        <BookOpen className="h-4 w-4" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <p className="truncate text-sm font-semibold">{a.title}</p>
-                          {!a.published && (
-                            <span className="shrink-0 rounded-full bg-warning/15 px-1.5 py-0.5 text-[9px] font-bold uppercase text-warning">
-                              Draft
-                            </span>
-                          )}
-                        </div>
-                        <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
-                          {a.content.slice(0, 120)}…
-                        </p>
-                      </div>
-                      <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground transition group-hover:text-foreground" />
-                    </Link>
-                    {role === "admin" && (
-                      <div className="flex items-center gap-1 border-t border-border/60 px-3 py-1.5">
-                        <button
-                          type="button"
-                          onClick={() => startEdit(a)}
-                          className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground"
-                        >
-                          <Pencil className="h-3 w-3" /> Edit
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => void togglePublish(a)}
-                          className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground"
-                        >
-                          {a.published ? (
-                            <>
-                              <EyeOff className="h-3 w-3" /> Unpublish
-                            </>
-                          ) : (
-                            <>
-                              <Eye className="h-3 w-3" /> Publish
-                            </>
-                          )}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => void deleteArticle(a)}
-                          className="ml-auto inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] text-destructive hover:bg-destructive/10"
-                        >
-                          <Trash2 className="h-3 w-3" /> Delete
-                        </button>
-                      </div>
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+          {filtered.map((a) => (
+            <div
+              key={a.id}
+              className="overflow-hidden rounded-2xl border border-border/60 bg-surface/60 backdrop-blur transition hover:border-primary/50"
+            >
+              <Link
+                to="/kb/$slug"
+                params={{ slug: a.slug }}
+                className="group flex items-start gap-3 p-4 transition hover:bg-surface"
+              >
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-primary text-primary-foreground shadow-elegant">
+                  <BookOpen className="h-4 w-4" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="rounded-full border border-border bg-background/50 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      {getCategoryLabel(a.category, categories)}
+                    </span>
+                    {!a.published && (
+                      <span className="shrink-0 rounded-full bg-warning/15 px-1.5 py-0.5 text-[9px] font-bold uppercase text-warning">
+                        Draft
+                      </span>
                     )}
                   </div>
-                ))}
-              </div>
-            </section>
+                  <p className="mt-1.5 truncate text-sm font-semibold">{a.title}</p>
+                  <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
+                    {a.content.slice(0, 120)}…
+                  </p>
+                </div>
+                <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground transition group-hover:text-foreground" />
+              </Link>
+              {role === "admin" && (
+                <div className="flex items-center gap-1 border-t border-border/60 px-3 py-1.5">
+                  <button
+                    type="button"
+                    onClick={() => startEdit(a)}
+                    className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground"
+                  >
+                    <Pencil className="h-3 w-3" /> Edit
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void togglePublish(a)}
+                    className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground"
+                  >
+                    {a.published ? (
+                      <>
+                        <EyeOff className="h-3 w-3" /> Unpublish
+                      </>
+                    ) : (
+                      <>
+                        <Eye className="h-3 w-3" /> Publish
+                      </>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void deleteArticle(a)}
+                    className="ml-auto inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] text-destructive hover:bg-destructive/10"
+                  >
+                    <Trash2 className="h-3 w-3" /> Delete
+                  </button>
+                </div>
+              )}
+            </div>
           ))}
         </div>
       )}
