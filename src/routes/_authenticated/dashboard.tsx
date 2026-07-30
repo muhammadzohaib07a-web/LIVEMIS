@@ -27,13 +27,16 @@ import {
   TrendingUp,
   ChevronRight,
   Sparkles,
+  BellRing,
 } from "lucide-react";
 import type { Database } from "@/integrations/supabase/types";
 import { isPreviewMode } from "@/lib/preview-auth";
 import { getCurrentUserContext, isMisStaff, type AppRole } from "@/lib/current-user";
 import {
   getCurrentPreviewTickets,
+  getPreviewNotifications,
   PREVIEW_CREATED_TICKETS_KEY,
+  PREVIEW_NOTIFICATIONS_KEY,
   PREVIEW_TICKET_STORAGE_KEY,
 } from "@/lib/preview-data";
 import {
@@ -43,6 +46,11 @@ import {
 } from "@/lib/ticket-status";
 
 type TicketRow = Database["public"]["Tables"]["tickets"]["Row"];
+type NotificationRow = Database["public"]["Tables"]["notifications"]["Row"];
+
+function isAssignmentNotification(notification: Pick<NotificationRow, "title" | "read">) {
+  return !notification.read && notification.title.toLowerCase().includes("assigned to you");
+}
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({
@@ -83,10 +91,19 @@ function Dashboard() {
   const [tickets, setTickets] = useState<TicketRow[]>([]);
   const [role, setRole] = useState<AppRole>("employee");
   const [loadingTickets, setLoadingTickets] = useState(true);
+  const [newAssignments, setNewAssignments] = useState<NotificationRow[]>([]);
+
+  const dismissAssignment = (notificationId: string) => {
+    setNewAssignments((current) => current.filter((n) => n.id !== notificationId));
+    if (isPreviewMode()) return;
+    void supabase.from("notifications").update({ read: true }).eq("id", notificationId);
+  };
 
   useEffect(() => {
     let ticketChannel: ReturnType<typeof supabase.channel> | null = null;
+    let notificationChannel: ReturnType<typeof supabase.channel> | null = null;
     let previewChannel: BroadcastChannel | null = null;
+    let previewNotificationChannel: BroadcastChannel | null = null;
     let storageListener: ((event: StorageEvent) => void) | null = null;
     let active = true;
 
@@ -110,12 +127,23 @@ function Dashboard() {
         refreshPreview();
         previewChannel = new BroadcastChannel("mis-support-preview-ticket-updates");
         previewChannel.onmessage = refreshPreview;
+        const refreshAssignments = () => {
+          setNewAssignments(getPreviewNotifications(context.id).filter(isAssignmentNotification));
+        };
+        if (context.role === "agent") {
+          refreshAssignments();
+          previewNotificationChannel = new BroadcastChannel("mis-support-preview-notifications");
+          previewNotificationChannel.onmessage = refreshAssignments;
+        }
         storageListener = (event) => {
           if (
             event.key === PREVIEW_CREATED_TICKETS_KEY ||
             event.key === PREVIEW_TICKET_STORAGE_KEY
           ) {
             refreshPreview();
+          }
+          if (event.key === PREVIEW_NOTIFICATIONS_KEY && context.role === "agent") {
+            refreshAssignments();
           }
         };
         window.addEventListener("storage", storageListener);
@@ -131,6 +159,35 @@ function Dashboard() {
       const { data: t } = await query;
       setTickets(t ?? []);
       setLoadingTickets(false);
+
+      if (context.role === "agent") {
+        const { data: n } = await supabase
+          .from("notifications")
+          .select("*")
+          .eq("read", false)
+          .ilike("title", "%assigned to you%")
+          .order("created_at", { ascending: false });
+        setNewAssignments(n ?? []);
+
+        notificationChannel = supabase
+          .channel(`dashboard-assignments-${context.id}`)
+          .on(
+            "postgres_changes",
+            {
+              event: "INSERT",
+              schema: "public",
+              table: "notifications",
+              filter: `user_id=eq.${context.id}`,
+            },
+            (payload) => {
+              const inserted = payload.new as NotificationRow;
+              if (isAssignmentNotification(inserted)) {
+                setNewAssignments((current) => [inserted, ...current]);
+              }
+            },
+          )
+          .subscribe();
+      }
 
       ticketChannel = supabase
         .channel(`dashboard-tickets-${context.id}`)
@@ -157,7 +214,9 @@ function Dashboard() {
       active = false;
       if (storageListener) window.removeEventListener("storage", storageListener);
       previewChannel?.close();
+      previewNotificationChannel?.close();
       if (ticketChannel) supabase.removeChannel(ticketChannel);
+      if (notificationChannel) supabase.removeChannel(notificationChannel);
     };
   }, []);
 
@@ -364,6 +423,50 @@ function Dashboard() {
           )}
         </Link>
       </div>
+
+      {role === "agent" && newAssignments.length > 0 && (
+        <div className="mb-6 rounded-2xl border border-warning/40 bg-warning/10 p-5">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="flex items-start gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-warning/20 text-warning">
+                <BellRing className="h-5 w-5" />
+              </div>
+              <div className="min-w-0">
+                <h2 className="font-bold">
+                  {newAssignments.length === 1
+                    ? "New ticket assigned to you"
+                    : `${newAssignments.length} new tickets assigned to you`}
+                </h2>
+                <ul className="mt-2 space-y-1">
+                  {newAssignments.slice(0, 3).map((n) => (
+                    <li key={n.id}>
+                      <Link
+                        to={n.link ?? "/tickets"}
+                        onClick={() => dismissAssignment(n.id)}
+                        className="text-sm font-medium text-primary hover:underline"
+                      >
+                        {n.body || n.title}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+                {newAssignments.length > 3 && (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    +{newAssignments.length - 3} more
+                  </p>
+                )}
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => newAssignments.forEach((n) => dismissAssignment(n.id))}
+              className="shrink-0 self-start text-xs font-semibold text-muted-foreground hover:text-foreground"
+            >
+              Dismiss all
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-6">
         {stats.map((s) => {
