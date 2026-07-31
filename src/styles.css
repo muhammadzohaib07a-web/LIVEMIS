@@ -227,20 +227,27 @@ html {
   }
 }
 
-/* Aesthetic beams backdrop behind every screen, tuned per theme (soft wash in
-   light mode, richer glow in dark mode). Painted as a background-image on
-   body itself (layered above background-color, no z-index/stacking-context
-   needed) so it always sits behind normal content; the translucent/blurred
-   surfaces throughout the app let it show through. */
+/* Aesthetic backdrop behind every screen: a faint grid texture, two soft
+   color blobs, and two diagonal beams that slowly drift. Tuned per theme —
+   a visible but tasteful designed wash in light mode, a richer glow in dark
+   mode. Painted as a background-image on body itself (layered above
+   background-color, no z-index/stacking-context needed) so it always sits
+   behind normal content; the translucent/blurred surfaces throughout the
+   app let it show through. Layer order: grid-x, grid-y, beam1, beam2,
+   blob1, blob2 — keep background-size/position lists in that same order. */
 body {
   background-attachment: fixed;
   background-repeat: no-repeat;
   background-image:
-    linear-gradient(115deg, transparent 42%, oklch(0.56 0.19 250 / 0.07) 50%, transparent 58%),
-    linear-gradient(115deg, transparent 60%, oklch(0.61 0.16 185 / 0.06) 68%, transparent 76%),
-    radial-gradient(ellipse 70% 55% at 25% -10%, oklch(0.56 0.19 250 / 0.12), transparent 60%),
-    radial-gradient(ellipse 60% 45% at 90% 5%, oklch(0.61 0.16 185 / 0.1), transparent 60%);
+    linear-gradient(to right, oklch(from var(--color-border) l c h / 0.6) 1px, transparent 1px),
+    linear-gradient(to bottom, oklch(from var(--color-border) l c h / 0.6) 1px, transparent 1px),
+    linear-gradient(115deg, transparent 38%, oklch(0.56 0.19 250 / 0.12) 50%, transparent 62%),
+    linear-gradient(115deg, transparent 55%, oklch(0.61 0.16 185 / 0.1) 68%, transparent 80%),
+    radial-gradient(ellipse 75% 60% at 15% -10%, oklch(0.56 0.19 250 / 0.2), transparent 62%),
+    radial-gradient(ellipse 65% 50% at 100% 0%, oklch(0.61 0.16 185 / 0.16), transparent 62%);
   background-size:
+    48px 48px,
+    48px 48px,
     220% 220%,
     220% 220%,
     100% 100%,
@@ -249,6 +256,8 @@ body {
 }
 .dark body {
   background-image:
+    linear-gradient(to right, oklch(from var(--color-border) l c h / 0.4) 1px, transparent 1px),
+    linear-gradient(to bottom, oklch(from var(--color-border) l c h / 0.4) 1px, transparent 1px),
     linear-gradient(115deg, transparent 42%, oklch(0.72 0.16 240 / 0.14) 50%, transparent 58%),
     linear-gradient(115deg, transparent 60%, oklch(0.76 0.15 185 / 0.1) 68%, transparent 76%),
     radial-gradient(ellipse 70% 55% at 25% -10%, oklch(0.72 0.16 240 / 0.22), transparent 60%),
@@ -263,6 +272,8 @@ body {
   0%,
   100% {
     background-position:
+      0 0,
+      0 0,
       -10% -10%,
       110% 110%,
       0 0,
@@ -270,6 +281,8 @@ body {
   }
   50% {
     background-position:
+      0 0,
+      0 0,
       110% 110%,
       -10% -10%,
       0 0,
