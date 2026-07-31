@@ -227,18 +227,19 @@ html {
   }
 }
 
-/* Radiant beams backdrop, dark mode only, fixed behind every screen. Painted
-   as a background-image on body itself (layered above background-color, no
-   z-index/stacking-context needed) so it always sits behind normal content;
-   translucent/blurred surfaces throughout the app let it show through. */
-.dark body {
+/* Aesthetic beams backdrop behind every screen, tuned per theme (soft wash in
+   light mode, richer glow in dark mode). Painted as a background-image on
+   body itself (layered above background-color, no z-index/stacking-context
+   needed) so it always sits behind normal content; the translucent/blurred
+   surfaces throughout the app let it show through. */
+body {
   background-attachment: fixed;
   background-repeat: no-repeat;
   background-image:
-    linear-gradient(115deg, transparent 42%, oklch(0.72 0.16 240 / 0.14) 50%, transparent 58%),
-    linear-gradient(115deg, transparent 60%, oklch(0.76 0.15 185 / 0.1) 68%, transparent 76%),
-    radial-gradient(ellipse 70% 55% at 25% -10%, oklch(0.72 0.16 240 / 0.22), transparent 60%),
-    radial-gradient(ellipse 60% 45% at 90% 5%, oklch(0.76 0.15 185 / 0.16), transparent 60%);
+    linear-gradient(115deg, transparent 42%, oklch(0.56 0.19 250 / 0.07) 50%, transparent 58%),
+    linear-gradient(115deg, transparent 60%, oklch(0.61 0.16 185 / 0.06) 68%, transparent 76%),
+    radial-gradient(ellipse 70% 55% at 25% -10%, oklch(0.56 0.19 250 / 0.12), transparent 60%),
+    radial-gradient(ellipse 60% 45% at 90% 5%, oklch(0.61 0.16 185 / 0.1), transparent 60%);
   background-size:
     220% 220%,
     220% 220%,
@@ -246,8 +247,15 @@ html {
     100% 100%;
   animation: beams-drift 22s ease-in-out infinite;
 }
+.dark body {
+  background-image:
+    linear-gradient(115deg, transparent 42%, oklch(0.72 0.16 240 / 0.14) 50%, transparent 58%),
+    linear-gradient(115deg, transparent 60%, oklch(0.76 0.15 185 / 0.1) 68%, transparent 76%),
+    radial-gradient(ellipse 70% 55% at 25% -10%, oklch(0.72 0.16 240 / 0.22), transparent 60%),
+    radial-gradient(ellipse 60% 45% at 90% 5%, oklch(0.76 0.15 185 / 0.16), transparent 60%);
+}
 @media (prefers-reduced-motion: reduce) {
-  .dark body {
+  body {
     animation: none;
   }
 }
