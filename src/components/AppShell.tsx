@@ -150,7 +150,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen">
       {/* Sidebar (desktop) */}
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 border-r border-border/60 bg-surface/40 backdrop-blur lg:flex lg:flex-col">
         <SidebarInner pathname={pathname} unread={unread} role={role} />

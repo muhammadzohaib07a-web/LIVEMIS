@@ -648,6 +648,8 @@ function TicketDetail() {
       ticket.status === "awaiting_feedback" &&
       (s === "closed" || s === "in_progress");
     if (!canManage && !canGiveCustomerFeedback) return;
+    // Only the MIS Head can cancel or give the final close, even if assigned to an agent.
+    if (role === "agent" && (s === "canceled" || s === "closed")) return;
     const previousStatus = ticket?.status;
     if (isPreviewMode()) {
       const update = {
@@ -845,7 +847,7 @@ function TicketDetail() {
   const sm = statusMeta[ticket.status];
   const StatusIcon = sm.icon;
   const nextStatuses = MIS_STATUS_TRANSITIONS[ticket.status].filter(
-    (status) => status !== "closed" || role === "admin",
+    (status) => (status !== "closed" && status !== "canceled") || role === "admin",
   );
   const canManageStatus = role === "admin" || (role === "agent" && ticket.assignee_id === me);
   const canGiveFeedback =
