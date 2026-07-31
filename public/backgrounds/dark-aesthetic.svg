@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <linearGradient id="base" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0a0c15"/>
+      <stop offset="55%" stop-color="#10131f"/>
+      <stop offset="100%" stop-color="#161c2e"/>
+    </linearGradient>
+    <radialGradient id="glowTeal" cx="18%" cy="8%" r="65%">
+      <stop offset="0%" stop-color="#2dd4e8" stop-opacity="0.4"/>
+      <stop offset="100%" stop-color="#2dd4e8" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glowViolet" cx="92%" cy="18%" r="60%">
+      <stop offset="0%" stop-color="#8b7cf6" stop-opacity="0.32"/>
+      <stop offset="100%" stop-color="#8b7cf6" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="beamTeal" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#2dd4e8" stop-opacity="0"/>
+      <stop offset="45%" stop-color="#2dd4e8" stop-opacity="0.32"/>
+      <stop offset="100%" stop-color="#2dd4e8" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="beamVioletFaint" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#8b7cf6" stop-opacity="0"/>
+      <stop offset="50%" stop-color="#8b7cf6" stop-opacity="0.22"/>
+      <stop offset="100%" stop-color="#8b7cf6" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="beamWhite" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#e8f6ff" stop-opacity="0"/>
+      <stop offset="50%" stop-color="#e8f6ff" stop-opacity="0.08"/>
+      <stop offset="100%" stop-color="#e8f6ff" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="grain">
+      <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" stitchTiles="stitch" result="noise"/>
+      <feColorMatrix in="noise" type="matrix" values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.025 0"/>
+    </filter>
+  </defs>
+
+  <rect width="1600" height="900" fill="url(#base)"/>
+  <rect width="1600" height="900" fill="url(#glowTeal)"/>
+  <rect width="1600" height="900" fill="url(#glowViolet)"/>
+
+  <g>
+    <rect x="-150" y="-300" width="260" height="1600" fill="url(#beamTeal)" transform="rotate(18 260 450)"/>
+    <rect x="380" y="-350" width="150" height="1700" fill="url(#beamWhite)" transform="rotate(18 460 450)"/>
+    <rect x="720" y="-300" width="220" height="1600" fill="url(#beamVioletFaint)" transform="rotate(18 830 450)"/>
+    <rect x="1080" y="-350" width="130" height="1700" fill="url(#beamWhite)" transform="rotate(18 1140 450)"/>
+    <rect x="1300" y="-300" width="280" height="1600" fill="url(#beamTeal)" transform="rotate(18 1440 450)"/>
+  </g>
+
+  <rect width="1600" height="900" filter="url(#grain)" opacity="0.5"/>
+</svg>
