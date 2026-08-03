@@ -74,4 +74,6 @@ export const METADATA_FIELD_LABELS: Record<string, string> = {
   vendor: "Vendor Name",
   machine: "Loom Number",
   shift: "Shift",
+  whatWereYouDoing: "What They Were Doing",
+  whereWereYouWorking: "Where They Were Working",
 };

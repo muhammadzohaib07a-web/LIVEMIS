@@ -2,8 +2,6 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
@@ -16,28 +14,20 @@ import { toast } from "sonner";
 import {
   ArrowLeft,
   ArrowRight,
-  Check,
-  CheckCircle2,
   ImagePlus,
   Loader2,
+  MessageCircleQuestion,
   Sparkles,
-  Workflow,
   X,
 } from "lucide-react";
 import type { Database } from "@/integrations/supabase/types";
 import { isPreviewMode } from "@/lib/preview-auth";
-import {
-  loadTicketCategories,
-  MIS_TICKET_CATEGORIES,
-  type TicketCategory,
-  type TicketCategoryOption,
-} from "@/lib/ticket-categories";
+import { loadTicketCategories, MIS_TICKET_CATEGORIES, type TicketCategoryOption } from "@/lib/ticket-categories";
 import { getCurrentUserContext } from "@/lib/current-user";
 import { storePreviewTicket } from "@/lib/preview-data";
-import { analyzeIssueScreenshot, generateIssueDescription } from "@/lib/ai-description";
+import { interpretGuidedReport } from "@/lib/ai-description";
 import { notifyNewTicket } from "@/lib/email-notifications";
-import { getModuleFields, type TicketMetadata } from "@/lib/ticket-dynamic-fields";
-import { ISSUE_TYPES, getIssueType, type IssueTypeKey } from "@/lib/ticket-issue-types";
+import type { TicketMetadata } from "@/lib/ticket-dynamic-fields";
 
 type Priority = Database["public"]["Enums"]["ticket_priority"];
 type Ticket = Database["public"]["Tables"]["tickets"]["Row"];
@@ -65,160 +55,138 @@ function readFileAsDataUrl(file: File) {
 export const Route = createFileRoute("/_authenticated/report/wizard")({
   head: () => ({
     meta: [
-      { title: "Guided Ticket Wizard — MIS Support Hub" },
-      { name: "description", content: "Step-by-step, module-aware ticket reporting." },
+      { title: "Tell Us What Happened — MIS Support Hub" },
+      { name: "description", content: "A simple, one-question-at-a-time way to report a problem." },
     ],
   }),
   component: ReportWizard,
 });
 
-const priorities: { value: Priority; label: string; tone: string }[] = [
-  { value: "low", label: "Low", tone: "text-muted-foreground" },
-  { value: "medium", label: "Medium", tone: "text-primary" },
-  { value: "high", label: "High", tone: "text-warning" },
-  { value: "urgent", label: "Urgent", tone: "text-destructive" },
+const DOING_CHIPS = [
+  "Entering or saving data",
+  "Printing something",
+  "Checking stock or a report",
+  "Logging in",
+  "Using a machine",
 ];
 
-const STEPS = ["Module", "Issue Type", "Details", "Review"] as const;
+const WHERE_CHIPS = ["Computer / Odoo screen", "Printer", "Machine on the floor", "Internet / Wi-Fi"];
+
+// Q0 what were you doing, Q1 where, Q2 what happened, Q3 impact, Q4 photo, Q5 review
+const TOTAL_STEPS = 6;
 
 function ReportWizard() {
   const navigate = useNavigate();
   const [step, setStep] = useState(0);
 
-  const [department, setDepartment] = useState("Loading…");
-  const [categories, setCategories] = useState<TicketCategoryOption[]>(MIS_TICKET_CATEGORIES);
-  const [category, setCategory] = useState<TicketCategory>("other");
-  const [priority, setPriority] = useState<Priority>("medium");
-  const [issueType, setIssueType] = useState<IssueTypeKey | "">("");
-
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [errorMessage, setErrorMessage] = useState("");
-  const [workStopped, setWorkStopped] = useState(false);
+  const [whatWereYouDoing, setWhatWereYouDoing] = useState("");
+  const [whereWereYouWorking, setWhereWereYouWorking] = useState("");
+  const [whatHappened, setWhatHappened] = useState("");
+  const [workStopped, setWorkStopped] = useState<boolean | null>(null);
   const [affectedUsers, setAffectedUsers] = useState(1);
-  const [moduleFieldValues, setModuleFieldValues] = useState<Record<string, string>>({});
   const [screenshot, setScreenshot] = useState<{ file: File; dataUrl: string } | null>(null);
 
-  const [generatingDescription, setGeneratingDescription] = useState(false);
-  const [analyzingScreenshot, setAnalyzingScreenshot] = useState(false);
+  const [thinking, setThinking] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-
-  const moduleFields = getModuleFields(category);
-  const categoryLabel = categories.find((c) => c.value === category)?.label ?? category;
-  const selectedIssueType = getIssueType(issueType);
+  const [prepared, setPrepared] = useState<{
+    title: string;
+    description: string;
+    category: string;
+    priority: Priority;
+  } | null>(null);
+  const [categories, setCategories] = useState<TicketCategoryOption[]>(MIS_TICKET_CATEGORIES);
 
   useEffect(() => {
-    if (isPreviewMode()) {
-      setDepartment("Production");
-      return;
-    }
+    if (isPreviewMode()) return;
     void loadTicketCategories().then(setCategories);
-    supabase.auth.getUser().then(async ({ data }) => {
-      if (!data.user) return;
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("department")
-        .eq("id", data.user.id)
-        .maybeSingle();
-      setDepartment(profile?.department ?? "Not set");
-    });
   }, []);
 
   const canProceed =
     step === 0
-      ? Boolean(category)
+      ? whatWereYouDoing.trim().length > 0
       : step === 1
-        ? Boolean(issueType)
+        ? whereWereYouWorking.trim().length > 0
         : step === 2
-          ? title.trim().length > 0 && description.trim().length > 0
-          : true;
+          ? whatHappened.trim().length > 0
+          : step === 3
+            ? workStopped !== null
+            : true;
+
+  const goBack = () => {
+    if (step === 5) {
+      setPrepared(null);
+      setStep(4);
+      return;
+    }
+    setStep((current) => Math.max(current - 1, 0));
+  };
+
+  const askAiToPrepareTicket = async () => {
+    setThinking(true);
+    try {
+      const result = await interpretGuidedReport({
+        data: {
+          whatWereYouDoing: whatWereYouDoing.trim(),
+          whereWereYouWorking: whereWereYouWorking.trim(),
+          whatHappened: whatHappened.trim(),
+          workStopped: workStopped ?? false,
+          affectedUsers,
+        },
+      });
+      setPrepared(result);
+      setStep(5);
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Could not prepare the ticket. Please try again.",
+      );
+    } finally {
+      setThinking(false);
+    }
+  };
 
   const goNext = () => {
     if (!canProceed) {
-      toast.error("Please complete this step before continuing");
+      toast.error("Please answer this question first");
       return;
     }
-    setStep((current) => Math.min(current + 1, STEPS.length - 1));
-  };
-  const goBack = () => setStep((current) => Math.max(current - 1, 0));
-
-  const writeDescriptionWithAi = async () => {
-    const cleanTitle = title.trim();
-    if (cleanTitle.length < 5) {
-      toast.error("Please enter a clear title first");
+    if (step === 4) {
+      void askAiToPrepareTicket();
       return;
     }
-    setGeneratingDescription(true);
-    try {
-      const result = await generateIssueDescription({ data: { title: cleanTitle } });
-      setDescription(result.description);
-      toast.success("AI wrote a simple four-line description");
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "AI description could not be generated");
-    } finally {
-      setGeneratingDescription(false);
-    }
-  };
-
-  const analyzeScreenshot = async (dataUrl = screenshot?.dataUrl) => {
-    if (!dataUrl || analyzingScreenshot) return;
-    setAnalyzingScreenshot(true);
-    try {
-      const result = await analyzeIssueScreenshot({
-        data: { title: title.trim(), imageDataUrl: dataUrl },
-      });
-      setDescription(result.description);
-      setCategory(result.category);
-      toast.success("Screenshot analyzed: description and category are ready");
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Screenshot could not be analyzed");
-    } finally {
-      setAnalyzingScreenshot(false);
-    }
+    setStep((current) => Math.min(current + 1, TOTAL_STEPS - 1));
   };
 
   const selectScreenshot = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
     if (!["image/png", "image/jpeg", "image/webp"].includes(file.type)) {
-      toast.error("Please select a PNG, JPEG, or WebP screenshot");
+      toast.error("Please select a PNG, JPEG, or WebP photo");
       event.target.value = "";
       return;
     }
     if (file.size > 2_500_000) {
-      toast.error("Screenshot must be 2.5 MB or smaller");
+      toast.error("Photo must be 2.5 MB or smaller");
       event.target.value = "";
       return;
     }
     try {
       const dataUrl = await readFileAsDataUrl(file);
       setScreenshot({ file, dataUrl });
-      await analyzeScreenshot(dataUrl);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not read screenshot");
+      toast.error(error instanceof Error ? error.message : "Could not read the photo");
     }
   };
 
-  const buildMetadata = (): TicketMetadata => ({
-    ...(issueType ? { issueType: selectedIssueType?.label ?? issueType } : {}),
-    ...(errorMessage.trim() ? { errorMessage: errorMessage.trim() } : {}),
-    workStopped,
-    affectedUsers,
-    ...Object.fromEntries(
-      moduleFields
-        .map((field) => [field.key, moduleFieldValues[field.key]?.trim()])
-        .filter(([, value]) => Boolean(value)),
-    ),
-  });
-
   const submit = async () => {
-    if (!title.trim() || !description.trim()) {
-      toast.error("Please add a title and description");
-      setStep(2);
-      return;
-    }
-    const metadata = buildMetadata();
+    if (!prepared) return;
     setSubmitting(true);
+
+    const metadata: TicketMetadata = {
+      workStopped: workStopped ?? false,
+      affectedUsers,
+      whatWereYouDoing: whatWereYouDoing.trim(),
+      whereWereYouWorking: whereWereYouWorking.trim(),
+    };
 
     if (isPreviewMode()) {
       const context = await getCurrentUserContext();
@@ -233,10 +201,10 @@ function ReportWizard() {
         ticket_no: `T-${String(Date.now()).slice(-6)}`,
         user_id: context.id,
         assignee_id: null,
-        title: title.trim(),
-        description: description.trim(),
-        category,
-        priority,
+        title: prepared.title,
+        description: prepared.description,
+        category: prepared.category,
+        priority: prepared.priority,
         status: "open",
         attachments: screenshot
           ? [
@@ -280,7 +248,7 @@ function ReportWizard() {
         .upload(path, screenshot.file, { contentType: screenshot.file.type, upsert: false });
       if (uploadError) {
         setSubmitting(false);
-        toast.error(`Screenshot upload failed: ${uploadError.message}`);
+        toast.error(`Photo upload failed: ${uploadError.message}`);
         return;
       }
       attachments.push({
@@ -295,10 +263,10 @@ function ReportWizard() {
       .from("tickets")
       .insert({
         user_id: u.user.id,
-        title: title.trim(),
-        description: description.trim(),
-        category,
-        priority,
+        title: prepared.title,
+        description: prepared.description,
+        category: prepared.category,
+        priority: prepared.priority,
         attachments,
         metadata,
       })
@@ -312,7 +280,7 @@ function ReportWizard() {
     await supabase.from("notifications").insert({
       user_id: u.user.id,
       title: `Ticket ${data.ticket_no} created`,
-      body: title.trim(),
+      body: prepared.title,
       link: `/tickets/${data.id}`,
     });
     void notifyNewTicket({ data: { ticketId: data.id } }).catch((notifyError) =>
@@ -324,273 +292,191 @@ function ReportWizard() {
 
   return (
     <>
-      <div className="mx-auto max-w-3xl">
+      <div className="mx-auto max-w-2xl">
         <div className="mb-6">
-          <p className="text-sm text-muted-foreground">Guided flow</p>
+          <p className="text-sm text-muted-foreground">Tell us what happened</p>
           <h1 className="text-3xl font-black tracking-tight sm:text-4xl">
-            Smart Ticket <span className="text-gradient">Wizard</span>
+            Report a <span className="text-gradient">Problem</span>
           </h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            Answer a few module-aware questions and MIS gets everything needed to start
-            investigating right away.
+            Just answer in your own words. We will turn it into a proper ticket for you.
           </p>
         </div>
 
-        {/* Step tree / progress */}
-        <ol className="mb-6 flex items-center gap-2">
-          {STEPS.map((label, index) => (
-            <li key={label} className="flex flex-1 items-center gap-2">
-              <div
-                className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-xs font-bold ${
-                  index < step
-                    ? "border-primary bg-primary text-primary-foreground"
-                    : index === step
-                      ? "border-primary bg-primary/10 text-primary"
-                      : "border-border bg-background text-muted-foreground"
-                }`}
-              >
-                {index < step ? <Check className="h-4 w-4" /> : index + 1}
-              </div>
-              <span
-                className={`hidden text-xs font-semibold sm:inline ${
-                  index <= step ? "text-foreground" : "text-muted-foreground"
-                }`}
-              >
-                {label}
-              </span>
-              {index < STEPS.length - 1 && (
-                <div
-                  className={`h-px flex-1 ${index < step ? "bg-primary" : "bg-border"}`}
-                  aria-hidden
-                />
-              )}
-            </li>
+        {/* Simple progress dots, no step names or jargon */}
+        <div className="mb-6 flex items-center gap-1.5">
+          {Array.from({ length: TOTAL_STEPS }).map((_, index) => (
+            <span
+              key={index}
+              className={`h-1.5 flex-1 rounded-full ${
+                index <= step ? "bg-primary" : "bg-border"
+              }`}
+            />
           ))}
-        </ol>
+        </div>
 
         <div className="space-y-6 rounded-2xl border border-border/60 bg-surface/40 p-6 backdrop-blur">
           {step === 0 && (
-            <div className="space-y-5">
-              <div className="grid gap-3 rounded-xl border border-primary/30 bg-primary/5 p-4 text-sm sm:grid-cols-2">
-                <div>
-                  <p className="text-xs uppercase tracking-widest text-muted-foreground">
-                    Department
-                  </p>
-                  <p className="mt-1 font-semibold">{department}</p>
-                </div>
-                <div>
-                  <p className="text-xs uppercase tracking-widest text-muted-foreground">
-                    Sends to
-                  </p>
-                  <p className="mt-1 font-semibold">MIS Support Queue</p>
-                </div>
+            <div className="space-y-4">
+              <div className="flex items-start gap-2">
+                <MessageCircleQuestion className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+                <h2 className="text-lg font-bold">What were you trying to do?</h2>
               </div>
-              <div className="space-y-2">
-                <Label>Which ERP module or area is this about?</Label>
-                <Select
-                  value={category}
-                  onValueChange={(v) => {
-                    setCategory(v as TicketCategory);
-                    setModuleFieldValues({});
-                  }}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categories.map((c) => (
-                      <SelectItem key={c.value} value={c.value}>
-                        <span className="font-medium">{c.label}</span>
-                        <span className="ml-2 text-xs text-muted-foreground">{c.hint}</span>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Priority</Label>
-                <Select value={priority} onValueChange={(v) => setPriority(v as Priority)}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {priorities.map((p) => (
-                      <SelectItem key={p.value} value={p.value}>
-                        <span className={`font-medium ${p.tone}`}>{p.label}</span>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <Textarea
+                autoFocus
+                rows={3}
+                placeholder="Example: I was trying to save a new customer order"
+                value={whatWereYouDoing}
+                onChange={(e) => setWhatWereYouDoing(e.target.value)}
+                maxLength={500}
+              />
+              <div className="flex flex-wrap gap-2">
+                {DOING_CHIPS.map((chip) => (
+                  <button
+                    key={chip}
+                    type="button"
+                    onClick={() => setWhatWereYouDoing(chip)}
+                    className="rounded-full border border-border bg-background/60 px-3 py-1.5 text-xs text-muted-foreground transition hover:border-primary/50 hover:text-foreground"
+                  >
+                    {chip}
+                  </button>
+                ))}
               </div>
             </div>
           )}
 
           {step === 1 && (
-            <div className="space-y-3">
-              <Label>What kind of issue is this?</Label>
-              <div className="grid gap-2 sm:grid-cols-2">
-                {ISSUE_TYPES.map((type) => (
+            <div className="space-y-4">
+              <div className="flex items-start gap-2">
+                <MessageCircleQuestion className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+                <h2 className="text-lg font-bold">Where were you working?</h2>
+              </div>
+              <Textarea
+                autoFocus
+                rows={2}
+                placeholder="Example: On the Odoo sales screen"
+                value={whereWereYouWorking}
+                onChange={(e) => setWhereWereYouWorking(e.target.value)}
+                maxLength={300}
+              />
+              <div className="flex flex-wrap gap-2">
+                {WHERE_CHIPS.map((chip) => (
                   <button
-                    key={type.key}
+                    key={chip}
                     type="button"
-                    onClick={() => setIssueType(type.key)}
-                    className={`rounded-xl border p-3 text-left transition ${
-                      issueType === type.key
-                        ? "border-primary bg-primary/10"
-                        : "border-border/60 bg-background/40 hover:border-primary/40"
-                    }`}
+                    onClick={() => setWhereWereYouWorking(chip)}
+                    className="rounded-full border border-border bg-background/60 px-3 py-1.5 text-xs text-muted-foreground transition hover:border-primary/50 hover:text-foreground"
                   >
-                    <p className="text-sm font-semibold">{type.label}</p>
-                    <p className="mt-0.5 text-xs text-muted-foreground">{type.hint}</p>
+                    {chip}
                   </button>
                 ))}
               </div>
-              {selectedIssueType && (
-                <div className="mt-4 rounded-xl border border-primary/25 bg-primary/5 p-4">
-                  <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-primary">
-                    <Workflow className="h-3.5 w-3.5" /> Expected resolution path
-                  </p>
-                  <ol className="mt-2 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-muted-foreground">
-                    {selectedIssueType.path.map((step_, index) => (
-                      <li key={step_} className="flex items-center gap-1.5">
-                        <span className="rounded-full border border-border bg-background/60 px-2 py-1 font-medium text-foreground">
-                          {step_}
-                        </span>
-                        {index < selectedIssueType.path.length - 1 && (
-                          <ArrowRight className="h-3 w-3" />
-                        )}
-                      </li>
-                    ))}
-                  </ol>
-                </div>
-              )}
             </div>
           )}
 
           {step === 2 && (
-            <div className="space-y-6">
-              <div className="space-y-2">
-                <Label htmlFor="title">Title</Label>
-                <Input
-                  id="title"
-                  required
-                  placeholder="e.g. Manufacturing order will not close"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  maxLength={140}
-                />
+            <div className="space-y-4">
+              <div className="flex items-start gap-2">
+                <MessageCircleQuestion className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+                <h2 className="text-lg font-bold">What happened?</h2>
               </div>
+              <p className="text-xs text-muted-foreground">
+                What did you see on the screen, or what stopped working? Write it just like you
+                would tell a colleague.
+              </p>
+              <Textarea
+                autoFocus
+                rows={5}
+                placeholder="Example: The screen showed a red error and would not let me click Save"
+                value={whatHappened}
+                onChange={(e) => setWhatHappened(e.target.value)}
+                maxLength={1000}
+              />
+            </div>
+          )}
 
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="desc">Describe the issue</Label>
-                  <button
-                    type="button"
-                    onClick={() => void writeDescriptionWithAi()}
-                    disabled={generatingDescription}
-                    className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-widest text-primary transition hover:bg-primary/20 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    {generatingDescription ? (
-                      <Loader2 className="h-3 w-3 animate-spin" />
-                    ) : (
-                      <Sparkles className="h-3 w-3" />
-                    )}
-                    Write 4 lines with AI
-                  </button>
-                </div>
-                <Textarea
-                  id="desc"
-                  required
-                  rows={5}
-                  placeholder="What happened? When did it start?"
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  maxLength={2000}
-                />
+          {step === 3 && (
+            <div className="space-y-5">
+              <div className="flex items-start gap-2">
+                <MessageCircleQuestion className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+                <h2 className="text-lg font-bold">Did this stop your work?</h2>
               </div>
-
-              {moduleFields.length > 0 && (
-                <div className="space-y-3 rounded-xl border border-border/60 bg-background/40 p-4">
-                  <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-                    Reference details for {categoryLabel}
-                  </p>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    {moduleFields.map((field) => (
-                      <div key={field.key} className="space-y-1.5">
-                        <Label htmlFor={`field-${field.key}`}>{field.label}</Label>
-                        <Input
-                          id={`field-${field.key}`}
-                          value={moduleFieldValues[field.key] ?? ""}
-                          onChange={(e) =>
-                            setModuleFieldValues((current) => ({
-                              ...current,
-                              [field.key]: e.target.value,
-                            }))
-                          }
-                        />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <div className="grid gap-4 rounded-xl border border-border/60 bg-background/40 p-4 sm:grid-cols-[1fr_auto_auto]">
-                <div className="space-y-1.5">
-                  <Label htmlFor="error-message">Exact error message (if any)</Label>
-                  <Input
-                    id="error-message"
-                    value={errorMessage}
-                    onChange={(e) => setErrorMessage(e.target.value)}
-                    placeholder="Copy-paste the error text"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Work stopped?</Label>
-                  <div className="flex overflow-hidden rounded-md border border-input">
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setWorkStopped(true)}
+                  className={`rounded-xl border p-4 text-center font-semibold transition ${
+                    workStopped === true
+                      ? "border-destructive bg-destructive/10 text-destructive"
+                      : "border-border/60 bg-background/40 hover:border-destructive/40"
+                  }`}
+                >
+                  Yes, I am stuck
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setWorkStopped(false)}
+                  className={`rounded-xl border p-4 text-center font-semibold transition ${
+                    workStopped === false
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border/60 bg-background/40 hover:border-primary/40"
+                  }`}
+                >
+                  No, just an issue
+                </button>
+              </div>
+              <div className="space-y-2">
+                <p className="text-sm font-medium">How many people does this affect?</p>
+                <div className="flex gap-2">
+                  {[
+                    { label: "Just me", value: 1 },
+                    { label: "A few people", value: 5 },
+                    { label: "My whole team", value: 20 },
+                  ].map((option) => (
                     <button
+                      key={option.label}
                       type="button"
-                      onClick={() => setWorkStopped(true)}
-                      className={`px-3 py-2 text-xs font-semibold transition ${
-                        workStopped
-                          ? "bg-destructive text-destructive-foreground"
-                          : "bg-transparent text-muted-foreground hover:bg-muted"
+                      onClick={() => setAffectedUsers(option.value)}
+                      className={`flex-1 rounded-xl border p-3 text-xs font-semibold transition ${
+                        affectedUsers === option.value
+                          ? "border-primary bg-primary/10 text-primary"
+                          : "border-border/60 bg-background/40 hover:border-primary/40"
                       }`}
                     >
-                      Yes
+                      {option.label}
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => setWorkStopped(false)}
-                      className={`px-3 py-2 text-xs font-semibold transition ${
-                        !workStopped
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-transparent text-muted-foreground hover:bg-muted"
-                      }`}
-                    >
-                      No
-                    </button>
-                  </div>
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="affected-users">Affected users</Label>
-                  <Input
-                    id="affected-users"
-                    type="number"
-                    min={1}
-                    max={9999}
-                    className="w-24"
-                    value={affectedUsers}
-                    onChange={(e) => setAffectedUsers(Math.max(1, Number(e.target.value) || 1))}
-                  />
+                  ))}
                 </div>
               </div>
+            </div>
+          )}
 
-              <div className="space-y-3 rounded-xl border border-primary/25 bg-primary/5 p-4">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <Label htmlFor="issue-screenshot" className="flex items-center gap-2">
-                    <ImagePlus className="h-4 w-4 text-primary" /> Screenshot for AI analysis
-                  </Label>
-                  {screenshot && (
+          {step === 4 && (
+            <div className="space-y-4">
+              <div className="flex items-start gap-2">
+                <MessageCircleQuestion className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+                <h2 className="text-lg font-bold">Do you have a photo of the screen?</h2>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Optional, but it helps MIS understand faster. You can skip this.
+              </p>
+              {!screenshot ? (
+                <label
+                  htmlFor="issue-screenshot"
+                  className="flex cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-primary/40 bg-background/50 px-4 py-8 text-center transition hover:border-primary hover:bg-primary/5"
+                >
+                  <ImagePlus className="mb-2 h-7 w-7 text-primary" />
+                  <span className="text-sm font-semibold">Add a photo</span>
+                </label>
+              ) : (
+                <div className="grid gap-3 sm:grid-cols-[160px_1fr] sm:items-center">
+                  <img
+                    src={screenshot.dataUrl}
+                    alt="Selected issue screenshot"
+                    className="h-28 w-full rounded-lg border border-border bg-background object-contain"
+                  />
+                  <div className="flex items-center justify-between">
+                    <p className="truncate text-sm font-semibold">{screenshot.file.name}</p>
                     <button
                       type="button"
                       onClick={() => setScreenshot(null)}
@@ -598,141 +484,93 @@ function ReportWizard() {
                     >
                       <X className="h-3.5 w-3.5" /> Remove
                     </button>
-                  )}
-                </div>
-                {!screenshot ? (
-                  <label
-                    htmlFor="issue-screenshot"
-                    className="flex cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-primary/40 bg-background/50 px-4 py-6 text-center transition hover:border-primary hover:bg-primary/5"
-                  >
-                    <ImagePlus className="mb-2 h-6 w-6 text-primary" />
-                    <span className="text-sm font-semibold">Choose a screenshot</span>
-                  </label>
-                ) : (
-                  <div className="grid gap-3 sm:grid-cols-[140px_1fr] sm:items-center">
-                    <img
-                      src={screenshot.dataUrl}
-                      alt="Selected issue screenshot"
-                      className="h-24 w-full rounded-lg border border-border bg-background object-contain"
-                    />
-                    <div>
-                      <p className="truncate text-sm font-semibold">{screenshot.file.name}</p>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="mt-2"
-                        disabled={analyzingScreenshot}
-                        onClick={() => void analyzeScreenshot()}
-                      >
-                        {analyzingScreenshot ? (
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        ) : (
-                          <Sparkles className="mr-2 h-4 w-4" />
-                        )}
-                        {analyzingScreenshot ? "Analyzing…" : "Analyze again"}
-                      </Button>
-                    </div>
                   </div>
-                )}
-                <input
-                  id="issue-screenshot"
-                  type="file"
-                  accept="image/png,image/jpeg,image/webp"
-                  className="sr-only"
-                  onChange={(event) => void selectScreenshot(event)}
-                />
-              </div>
+                </div>
+              )}
+              <input
+                id="issue-screenshot"
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                className="sr-only"
+                onChange={(event) => void selectScreenshot(event)}
+              />
             </div>
           )}
 
-          {step === 3 && (
+          {step === 5 && prepared && (
             <div className="space-y-4">
-              <p className="text-sm text-muted-foreground">
-                Review everything before sending this to the MIS queue.
-              </p>
+              <div className="flex items-start gap-2">
+                <Sparkles className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+                <div>
+                  <h2 className="text-lg font-bold">Here is your ticket</h2>
+                  <p className="text-xs text-muted-foreground">
+                    We wrote this from your answers. Check it looks right, then submit.
+                  </p>
+                </div>
+              </div>
               <div className="space-y-3 rounded-xl border border-border/60 bg-background/40 p-4 text-sm">
                 <div>
-                  <p className="text-xs uppercase tracking-widest text-muted-foreground">Module</p>
-                  <p className="font-semibold">
-                    {categoryLabel} · {priorities.find((p) => p.value === priority)?.label} priority
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs uppercase tracking-widest text-muted-foreground">
-                    Issue type
-                  </p>
-                  <p className="font-semibold">{selectedIssueType?.label}</p>
-                </div>
-                <div>
                   <p className="text-xs uppercase tracking-widest text-muted-foreground">Title</p>
-                  <p className="font-semibold">{title}</p>
+                  <p className="font-semibold">{prepared.title}</p>
                 </div>
                 <div>
                   <p className="text-xs uppercase tracking-widest text-muted-foreground">
                     Description
                   </p>
-                  <p className="whitespace-pre-wrap text-foreground/90">{description}</p>
+                  <p className="whitespace-pre-wrap text-foreground/90">{prepared.description}</p>
                 </div>
-                {(errorMessage || workStopped || moduleFields.length > 0) && (
-                  <div>
-                    <p className="text-xs uppercase tracking-widest text-muted-foreground">
-                      Reference details
-                    </p>
-                    <ul className="mt-1 space-y-1">
-                      {errorMessage && (
-                        <li className="flex items-center gap-1.5">
-                          <CheckCircle2 className="h-3.5 w-3.5 text-success" /> Error:{" "}
-                          <span className="font-medium">{errorMessage}</span>
-                        </li>
-                      )}
-                      <li className="flex items-center gap-1.5">
-                        <CheckCircle2 className="h-3.5 w-3.5 text-success" /> Work stopped:{" "}
-                        <span className="font-medium">{workStopped ? "Yes" : "No"}</span>
-                      </li>
-                      <li className="flex items-center gap-1.5">
-                        <CheckCircle2 className="h-3.5 w-3.5 text-success" /> Affected users:{" "}
-                        <span className="font-medium">{affectedUsers}</span>
-                      </li>
-                      {moduleFields.map(
-                        (field) =>
-                          moduleFieldValues[field.key]?.trim() && (
-                            <li key={field.key} className="flex items-center gap-1.5">
-                              <CheckCircle2 className="h-3.5 w-3.5 text-success" /> {field.label}:{" "}
-                              <span className="font-medium">{moduleFieldValues[field.key]}</span>
-                            </li>
-                          ),
-                      )}
-                    </ul>
-                  </div>
-                )}
-                {screenshot && (
-                  <div>
-                    <p className="text-xs uppercase tracking-widest text-muted-foreground">
-                      Attachment
-                    </p>
-                    <p className="font-medium">{screenshot.file.name}</p>
-                  </div>
-                )}
+                <div className="space-y-1.5">
+                  <p className="text-xs uppercase tracking-widest text-muted-foreground">
+                    Sent under (change if this looks wrong)
+                  </p>
+                  <Select
+                    value={prepared.category}
+                    onValueChange={(value) => setPrepared((p) => (p ? { ...p, category: value } : p))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {categories.map((c) => (
+                        <SelectItem key={c.value} value={c.value}>
+                          {c.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </div>
           )}
 
-          <div className="flex items-center justify-between border-t border-border/60 pt-5">
-            <Button type="button" variant="ghost" onClick={goBack} disabled={step === 0}>
-              <ArrowLeft className="mr-2 h-4 w-4" /> Back
-            </Button>
-            {step < STEPS.length - 1 ? (
-              <Button type="button" onClick={goNext}>
-                Next <ArrowRight className="ml-2 h-4 w-4" />
+          {thinking && (
+            <div className="flex flex-col items-center justify-center gap-3 py-10 text-center">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <p className="text-sm font-semibold">Preparing your ticket…</p>
+              <p className="text-xs text-muted-foreground">
+                We are turning your answers into a report for MIS.
+              </p>
+            </div>
+          )}
+
+          {!thinking && (
+            <div className="flex items-center justify-between border-t border-border/60 pt-5">
+              <Button type="button" variant="ghost" onClick={goBack} disabled={step === 0}>
+                <ArrowLeft className="mr-2 h-4 w-4" /> Back
               </Button>
-            ) : (
-              <Button type="button" onClick={() => void submit()} disabled={submitting}>
-                {submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                Submit ticket
-              </Button>
-            )}
-          </div>
+              {step < 5 ? (
+                <Button type="button" onClick={goNext}>
+                  {step === 4 ? "Prepare my ticket" : "Next"}
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              ) : (
+                <Button type="button" onClick={() => void submit()} disabled={submitting}>
+                  {submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                  Submit ticket
+                </Button>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </>
