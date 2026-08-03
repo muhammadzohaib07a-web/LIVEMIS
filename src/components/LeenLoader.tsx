@@ -1,10 +1,47 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import anime from "animejs";
+import { getPreferredTheme } from "@/lib/theme";
 
-// Fixed-look "sea green" splash used for the auth session check and page
-// transitions. Deliberately ignores the app's light/dark theme — it always
-// renders with its own dark sea-green palette, like a brand splash screen.
+const PALETTES = {
+  dark: {
+    bg: "#000000",
+    beforeGradient: "radial-gradient(ellipse at 30% 20%, #141414 0%, #060606 70%, #000000 100%)",
+    textGradient:
+      "linear-gradient(135deg, #F7F5F0 0%, #F5C6C0 30%, #F7F5F0 60%, #F5A69A 80%, #F7F5F0 100%)",
+    subColor: "#A0CEC7",
+    threadColor: "#6DC3BA, #A8E6CF, #6DC3BA",
+    progressGradient: "linear-gradient(90deg, #F5A69A, #F7CAC9, #F5A69A)",
+    progressTrackBg: "rgba(247, 245, 240, 0.08)",
+    accentRgb: "245,166,154",
+    particleColors: ["#A8E6CF", "#F5A69A", "#F7F5F0", "#6DC3BA"],
+    weaveLine: "rgba(109, 195, 186, 0.3)",
+    vignette: "radial-gradient(ellipse at center, transparent 60%, rgba(0,0,0,0.55) 100%)",
+    particleGlow: "rgba(168, 230, 207, 0.2)",
+  },
+  light: {
+    bg: "#FFFFFF",
+    beforeGradient: "radial-gradient(ellipse at 30% 20%, #F2FAF7 0%, #FFFFFF 70%, #FFFFFF 100%)",
+    textGradient:
+      "linear-gradient(135deg, #16332E 0%, #C97B6E 30%, #16332E 60%, #B85C4E 80%, #16332E 100%)",
+    subColor: "#2F7C6E",
+    threadColor: "#3FA898, #1F5C50, #3FA898",
+    progressGradient: "linear-gradient(90deg, #C97B6E, #E3A79A, #C97B6E)",
+    progressTrackBg: "rgba(22, 51, 46, 0.08)",
+    accentRgb: "201,123,110",
+    particleColors: ["#2F7C6E", "#C97B6E", "#16332E", "#3FA898"],
+    weaveLine: "rgba(63, 168, 152, 0.25)",
+    vignette: "radial-gradient(ellipse at center, transparent 60%, rgba(0,0,0,0.06) 100%)",
+    particleGlow: "rgba(47, 124, 110, 0.2)",
+  },
+} as const;
+
+// Splash used for the auth session check and page transitions. Follows the
+// app's light/dark theme: black canvas + cream/coral accents in dark mode,
+// white canvas + deep teal/coral accents in light mode.
 export function LeenLoader() {
+  const [theme] = useState(getPreferredTheme);
+  const palette = PALETTES[theme];
+
   const particlesRef = useRef<HTMLDivElement>(null);
   const logoTextRef = useRef<HTMLSpanElement>(null);
   const logoSubRef = useRef<HTMLSpanElement>(null);
@@ -23,10 +60,10 @@ export function LeenLoader() {
     const nodes = nodeRefs.current.filter((el): el is HTMLSpanElement => el !== null);
     if (!particlesContainer || !logoText || !logoSub || !fill || !numLabel) return;
 
+    const accent = palette.accentRgb;
     let isComplete = false;
     const instances: anime.AnimeInstance[] = [];
 
-    const colors = ["#A8E6CF", "#F5A69A", "#F7F5F0", "#6DC3BA"];
     const particleCount = 32;
     const fragment = document.createDocumentFragment();
     const particleData: { el: HTMLSpanElement; delay: number; duration: number; x: number; y: number }[] = [];
@@ -38,7 +75,7 @@ export function LeenLoader() {
       el.style.height = `${size}px`;
       el.style.left = `${2 + Math.random() * 96}%`;
       el.style.top = `${2 + Math.random() * 96}%`;
-      el.style.background = colors[Math.floor(Math.random() * colors.length)];
+      el.style.background = palette.particleColors[Math.floor(Math.random() * palette.particleColors.length)];
       el.style.borderRadius = Math.random() > 0.5 ? "50%" : "2px";
       const data = {
         el,
@@ -82,8 +119,8 @@ export function LeenLoader() {
         easing: "easeInOutSine",
         letterSpacing: ["0.04em", "0.12em"],
         filter: [
-          "drop-shadow(0 4px 20px rgba(245,166,154,0.05))",
-          "drop-shadow(0 4px 50px rgba(245,166,154,0.25))",
+          `drop-shadow(0 4px 20px rgba(${accent},0.05))`,
+          `drop-shadow(0 4px 50px rgba(${accent},0.25))`,
         ],
         translateY: [0, -4],
         update: (anim) => {
@@ -117,8 +154,8 @@ export function LeenLoader() {
           direction: "alternate",
           easing: "easeInOutQuad",
           scale: [1, 3.0],
-          background: ["rgba(245,166,154,0.10)", "rgba(245,166,154,0.70)"],
-          boxShadow: ["0 0 0px rgba(245,166,154,0)", "0 0 24px rgba(245,166,154,0.25)"],
+          background: [`rgba(${accent},0.10)`, `rgba(${accent},0.70)`],
+          boxShadow: [`0 0 0px rgba(${accent},0)`, `0 0 24px rgba(${accent},0.25)`],
         } as anime.AnimeParams),
       );
     });
@@ -161,9 +198,9 @@ export function LeenLoader() {
               duration: 600,
               easing: "easeOutQuad",
               boxShadow: [
-                "0 0 20px rgba(245,166,154,0)",
-                "0 0 60px rgba(245,166,154,0.4)",
-                "0 0 20px rgba(245,166,154,0)",
+                `0 0 20px rgba(${accent},0)`,
+                `0 0 60px rgba(${accent},0.4)`,
+                `0 0 20px rgba(${accent},0)`,
               ],
             } as anime.AnimeParams);
             nodes.forEach((n) => {
@@ -171,9 +208,9 @@ export function LeenLoader() {
                 targets: n,
                 duration: 500,
                 easing: "easeOutQuad",
-                background: "rgba(245,166,154,0.9)",
+                background: `rgba(${accent},0.9)`,
                 scale: 4,
-                boxShadow: "0 0 30px rgba(245,166,154,0.4)",
+                boxShadow: `0 0 30px rgba(${accent},0.4)`,
               } as anime.AnimeParams);
             });
             anime({
@@ -182,9 +219,9 @@ export function LeenLoader() {
               easing: "easeOutQuad",
               scale: [1, 1.02, 1],
               filter: [
-                "drop-shadow(0 4px 30px rgba(245,166,154,0.15))",
-                "drop-shadow(0 4px 60px rgba(245,166,154,0.4))",
-                "drop-shadow(0 4px 30px rgba(245,166,154,0.15))",
+                `drop-shadow(0 4px 30px rgba(${accent},0.15))`,
+                `drop-shadow(0 4px 60px rgba(${accent},0.4))`,
+                `drop-shadow(0 4px 30px rgba(${accent},0.15))`,
               ],
             } as anime.AnimeParams);
           }
@@ -198,14 +235,29 @@ export function LeenLoader() {
       instances.forEach((instance) => instance.pause());
       particlesContainer.replaceChildren();
     };
-  }, []);
-
-  const handleRestart = () => {
-    // Decorative click-to-replay, mirrors the original standalone preview.
-  };
+  }, [palette]);
 
   return (
-    <div className="ll-root" role="status" aria-label="LEEN Textile loading" onClick={handleRestart}>
+    <div
+      className="ll-root"
+      role="status"
+      aria-label="LEEN Textile loading"
+      style={
+        {
+          "--ll-bg": palette.bg,
+          "--ll-before-gradient": palette.beforeGradient,
+          "--ll-text-gradient": palette.textGradient,
+          "--ll-sub-color": palette.subColor,
+          "--ll-thread-color": palette.threadColor,
+          "--ll-progress-gradient": palette.progressGradient,
+          "--ll-progress-track-bg": palette.progressTrackBg,
+          "--ll-accent-rgb": palette.accentRgb,
+          "--ll-weave-line": palette.weaveLine,
+          "--ll-vignette": palette.vignette,
+          "--ll-particle-glow": palette.particleGlow,
+        } as React.CSSProperties
+      }
+    >
       <style>{LEEN_LOADER_CSS}</style>
       <div className="ll-vignette" />
       <div className="ll-loader">
@@ -285,7 +337,7 @@ const LEEN_LOADER_CSS = `
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #0E3530;
+  background: var(--ll-bg);
   font-family: 'Playfair Display', serif;
   overflow: hidden;
   user-select: none;
@@ -294,7 +346,7 @@ const LEEN_LOADER_CSS = `
   content: '';
   position: fixed;
   inset: 0;
-  background: radial-gradient(ellipse at 30% 20%, #1A5D52 0%, #0A2F2A 70%, #051E1A 100%);
+  background: var(--ll-before-gradient);
   pointer-events: none;
   z-index: 0;
 }
@@ -327,13 +379,13 @@ const LEEN_LOADER_CSS = `
   height: 1.5px;
   left: -10%;
   width: 120%;
-  background: linear-gradient(90deg, transparent, #6DC3BA, #A8E6CF, #6DC3BA, transparent);
+  background: linear-gradient(90deg, transparent, var(--ll-thread-color), transparent);
 }
 .ll-thread--v {
   width: 1.5px;
   top: -10%;
   height: 120%;
-  background: linear-gradient(180deg, transparent, #6DC3BA, #A8E6CF, #6DC3BA, transparent);
+  background: linear-gradient(180deg, transparent, var(--ll-thread-color), transparent);
 }
 .ll-logo {
   position: relative;
@@ -350,15 +402,14 @@ const LEEN_LOADER_CSS = `
   font-size: clamp(3.2rem, 10vw, 5.6rem);
   letter-spacing: 0.06em;
   line-height: 1.05;
-  color: #F7F5F0;
   position: relative;
   display: inline-block;
-  background: linear-gradient(135deg, #F7F5F0 0%, #F5C6C0 30%, #F7F5F0 60%, #F5A69A 80%, #F7F5F0 100%);
+  background: var(--ll-text-gradient);
   background-size: 300% 300%;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
-  filter: drop-shadow(0 4px 30px rgba(245, 166, 154, 0.15));
+  filter: drop-shadow(0 4px 30px rgba(var(--ll-accent-rgb), 0.15));
 }
 .ll-logo__sub {
   display: block;
@@ -368,10 +419,10 @@ const LEEN_LOADER_CSS = `
   font-size: clamp(0.85rem, 1.6vw, 1.15rem);
   letter-spacing: 0.5em;
   text-transform: uppercase;
-  color: #A0CEC7;
+  color: var(--ll-sub-color);
   margin-top: 0.1rem;
   opacity: 0.8;
-  -webkit-text-fill-color: #A0CEC7;
+  -webkit-text-fill-color: var(--ll-sub-color);
 }
 .ll-ornament {
   display: flex;
@@ -383,17 +434,17 @@ const LEEN_LOADER_CSS = `
 .ll-ornament__line {
   width: 40px;
   height: 0.5px;
-  background: linear-gradient(90deg, transparent, #F5A69A);
+  background: linear-gradient(90deg, transparent, rgba(var(--ll-accent-rgb), 0.9));
 }
 .ll-ornament__line:last-child {
-  background: linear-gradient(90deg, #F5A69A, transparent);
+  background: linear-gradient(90deg, rgba(var(--ll-accent-rgb), 0.9), transparent);
 }
 .ll-ornament__diamond {
   width: 6px;
   height: 6px;
   transform: rotate(45deg);
-  border: 0.5px solid #F5A69A;
-  background: rgba(245, 166, 154, 0.1);
+  border: 0.5px solid rgba(var(--ll-accent-rgb), 0.9);
+  background: rgba(var(--ll-accent-rgb), 0.1);
 }
 .ll-progress {
   position: relative;
@@ -408,7 +459,7 @@ const LEEN_LOADER_CSS = `
 .ll-progress__track {
   width: 100%;
   height: 2px;
-  background: rgba(247, 245, 240, 0.08);
+  background: var(--ll-progress-track-bg);
   border-radius: 4px;
   overflow: hidden;
   position: relative;
@@ -416,12 +467,12 @@ const LEEN_LOADER_CSS = `
 .ll-progress__fill {
   width: 0%;
   height: 100%;
-  background: linear-gradient(90deg, #F5A69A, #F7CAC9, #F5A69A);
+  background: var(--ll-progress-gradient);
   background-size: 200% 100%;
   border-radius: 4px;
   position: relative;
   will-change: transform;
-  box-shadow: 0 0 20px rgba(245, 166, 154, 0.15);
+  box-shadow: 0 0 20px rgba(var(--ll-accent-rgb), 0.15);
 }
 .ll-progress__label {
   font-family: 'Cormorant Garamond', serif;
@@ -430,7 +481,7 @@ const LEEN_LOADER_CSS = `
   font-size: 0.7rem;
   letter-spacing: 0.5em;
   text-transform: uppercase;
-  color: #A0CEC7;
+  color: var(--ll-sub-color);
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -440,7 +491,7 @@ const LEEN_LOADER_CSS = `
   font-weight: 600;
   font-style: normal;
   font-size: 0.9rem;
-  color: #F7CAC9;
+  color: rgba(var(--ll-accent-rgb), 1);
   letter-spacing: 0.05em;
   min-width: 2.4rem;
   display: inline-block;
@@ -457,7 +508,7 @@ const LEEN_LOADER_CSS = `
   width: 4px;
   height: 4px;
   border-radius: 50%;
-  background: rgba(245, 166, 154, 0.15);
+  background: rgba(var(--ll-accent-rgb), 0.15);
   will-change: transform, background;
 }
 .ll-weave-bg {
@@ -467,8 +518,8 @@ const LEEN_LOADER_CSS = `
   pointer-events: none;
   opacity: 0.04;
   background-image:
-    repeating-linear-gradient(0deg, transparent, transparent 22px, rgba(109, 195, 186, 0.3) 22px, rgba(109, 195, 186, 0.3) 23px),
-    repeating-linear-gradient(90deg, transparent, transparent 22px, rgba(109, 195, 186, 0.3) 22px, rgba(109, 195, 186, 0.3) 23px);
+    repeating-linear-gradient(0deg, transparent, transparent 22px, var(--ll-weave-line) 22px, var(--ll-weave-line) 23px),
+    repeating-linear-gradient(90deg, transparent, transparent 22px, var(--ll-weave-line) 22px, var(--ll-weave-line) 23px);
   background-size: 44px 44px;
   mask-image: radial-gradient(ellipse at center, black 30%, transparent 75%);
   -webkit-mask-image: radial-gradient(ellipse at center, black 30%, transparent 75%);
@@ -485,14 +536,14 @@ const LEEN_LOADER_CSS = `
   border-radius: 50%;
   opacity: 0;
   will-change: transform, opacity;
-  box-shadow: 0 0 6px rgba(168, 230, 207, 0.2);
+  box-shadow: 0 0 6px var(--ll-particle-glow);
 }
 .ll-vignette {
   position: fixed;
   inset: 0;
   pointer-events: none;
   z-index: 9998;
-  background: radial-gradient(ellipse at center, transparent 60%, rgba(5, 30, 26, 0.3) 100%);
+  background: var(--ll-vignette);
 }
 @media (max-width: 480px) {
   .ll-loader { padding: 1.5rem 1rem; }
