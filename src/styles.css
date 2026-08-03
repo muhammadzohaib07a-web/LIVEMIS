@@ -254,14 +254,14 @@ body {
     100% 100%;
   animation: beams-drift 22s ease-in-out infinite;
 }
-/* Dark mode gets an actual illustrated backdrop (SVG picture: beams, glow,
-   film grain) instead of the live CSS gradient stack — a slow "Ken Burns"
-   zoom/pan keeps it feeling alive without being distracting. */
 .dark body {
-  background-image: url("/backgrounds/dark-aesthetic.svg");
-  background-repeat: no-repeat;
-  background-position: center;
-  animation: bg-kenburns 40s ease-in-out infinite alternate;
+  background-image:
+    linear-gradient(to right, oklch(from var(--color-border) l c h / 0.4) 1px, transparent 1px),
+    linear-gradient(to bottom, oklch(from var(--color-border) l c h / 0.4) 1px, transparent 1px),
+    linear-gradient(115deg, transparent 42%, oklch(0.72 0.16 240 / 0.12) 50%, transparent 58%),
+    linear-gradient(115deg, transparent 60%, oklch(0.76 0.15 185 / 0.09) 68%, transparent 76%),
+    radial-gradient(ellipse 70% 55% at 20% -10%, oklch(0.72 0.16 240 / 0.16), transparent 60%),
+    radial-gradient(ellipse 60% 45% at 95% 5%, oklch(0.76 0.15 185 / 0.12), transparent 60%);
 }
 @media (prefers-reduced-motion: reduce) {
   body {
@@ -287,16 +287,6 @@ body {
       -10% -10%,
       0 0,
       0 0;
-  }
-}
-@keyframes bg-kenburns {
-  0% {
-    background-size: 115% auto;
-    background-position: 35% 30%;
-  }
-  100% {
-    background-size: 145% auto;
-    background-position: 65% 60%;
   }
 }
 
