@@ -63,6 +63,7 @@ export const METADATA_FIELD_LABELS: Record<string, string> = {
   errorMessage: "Error Message",
   workStopped: "Work Stopped",
   affectedUsers: "Affected Users",
+  issueType: "Issue Type",
   warehouse: "Warehouse / Location",
   lot_serial: "Lot / Serial Number",
   reference_no: "Reference Number",

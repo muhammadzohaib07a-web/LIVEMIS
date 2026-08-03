@@ -20,6 +20,7 @@ import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedUsersRouteImport } from './routes/_authenticated/users'
 import { Route as AuthenticatedKbIndexRouteImport } from './routes/_authenticated/kb.index'
 import { Route as AuthenticatedKbSlugRouteImport } from './routes/_authenticated/kb.$slug'
+import { Route as AuthenticatedReportWizardRouteImport } from './routes/_authenticated/report.wizard'
 import { Route as AuthenticatedTicketsIndexRouteImport } from './routes/_authenticated/tickets.index'
 import { Route as AuthenticatedTicketsIdRouteImport } from './routes/_authenticated/tickets.$id'
 
@@ -79,6 +80,12 @@ const AuthenticatedKbSlugRoute = AuthenticatedKbSlugRouteImport.update({
   path: '/kb/$slug',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedReportWizardRoute =
+  AuthenticatedReportWizardRouteImport.update({
+    id: '/wizard',
+    path: '/wizard',
+    getParentRoute: () => AuthenticatedReportRoute,
+  } as any)
 const AuthenticatedTicketsIndexRoute =
   AuthenticatedTicketsIndexRouteImport.update({
     id: '/tickets/',
@@ -97,10 +104,11 @@ export interface FileRoutesByFullPath {
   '/assignments': typeof AuthenticatedAssignmentsRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/notifications': typeof AuthenticatedNotificationsRoute
-  '/report': typeof AuthenticatedReportRoute
+  '/report': typeof AuthenticatedReportRouteWithChildren
   '/settings': typeof AuthenticatedSettingsRoute
   '/users': typeof AuthenticatedUsersRoute
   '/kb/$slug': typeof AuthenticatedKbSlugRoute
+  '/report/wizard': typeof AuthenticatedReportWizardRoute
   '/tickets/$id': typeof AuthenticatedTicketsIdRoute
   '/kb/': typeof AuthenticatedKbIndexRoute
   '/tickets/': typeof AuthenticatedTicketsIndexRoute
@@ -111,10 +119,11 @@ export interface FileRoutesByTo {
   '/assignments': typeof AuthenticatedAssignmentsRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/notifications': typeof AuthenticatedNotificationsRoute
-  '/report': typeof AuthenticatedReportRoute
+  '/report': typeof AuthenticatedReportRouteWithChildren
   '/settings': typeof AuthenticatedSettingsRoute
   '/users': typeof AuthenticatedUsersRoute
   '/kb/$slug': typeof AuthenticatedKbSlugRoute
+  '/report/wizard': typeof AuthenticatedReportWizardRoute
   '/tickets/$id': typeof AuthenticatedTicketsIdRoute
   '/kb': typeof AuthenticatedKbIndexRoute
   '/tickets': typeof AuthenticatedTicketsIndexRoute
@@ -127,10 +136,11 @@ export interface FileRoutesById {
   '/_authenticated/assignments': typeof AuthenticatedAssignmentsRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/notifications': typeof AuthenticatedNotificationsRoute
-  '/_authenticated/report': typeof AuthenticatedReportRoute
+  '/_authenticated/report': typeof AuthenticatedReportRouteWithChildren
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/users': typeof AuthenticatedUsersRoute
   '/_authenticated/kb/$slug': typeof AuthenticatedKbSlugRoute
+  '/_authenticated/report/wizard': typeof AuthenticatedReportWizardRoute
   '/_authenticated/tickets/$id': typeof AuthenticatedTicketsIdRoute
   '/_authenticated/kb/': typeof AuthenticatedKbIndexRoute
   '/_authenticated/tickets/': typeof AuthenticatedTicketsIndexRoute
@@ -147,6 +157,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/users'
     | '/kb/$slug'
+    | '/report/wizard'
     | '/tickets/$id'
     | '/kb/'
     | '/tickets/'
@@ -161,6 +172,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/users'
     | '/kb/$slug'
+    | '/report/wizard'
     | '/tickets/$id'
     | '/kb'
     | '/tickets'
@@ -176,6 +188,7 @@ export interface FileRouteTypes {
     | '/_authenticated/settings'
     | '/_authenticated/users'
     | '/_authenticated/kb/$slug'
+    | '/_authenticated/report/wizard'
     | '/_authenticated/tickets/$id'
     | '/_authenticated/kb/'
     | '/_authenticated/tickets/'
@@ -266,6 +279,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedKbSlugRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/report/wizard': {
+      id: '/_authenticated/report/wizard'
+      path: '/wizard'
+      fullPath: '/report/wizard'
+      preLoaderRoute: typeof AuthenticatedReportWizardRouteImport
+      parentRoute: typeof AuthenticatedReportRoute
+    }
     '/_authenticated/tickets/': {
       id: '/_authenticated/tickets/'
       path: '/tickets'
@@ -283,11 +303,22 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AuthenticatedReportRouteChildren {
+  AuthenticatedReportWizardRoute: typeof AuthenticatedReportWizardRoute
+}
+
+const AuthenticatedReportRouteChildren: AuthenticatedReportRouteChildren = {
+  AuthenticatedReportWizardRoute: AuthenticatedReportWizardRoute,
+}
+
+const AuthenticatedReportRouteWithChildren =
+  AuthenticatedReportRoute._addFileChildren(AuthenticatedReportRouteChildren)
+
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedAssignmentsRoute: typeof AuthenticatedAssignmentsRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedNotificationsRoute: typeof AuthenticatedNotificationsRoute
-  AuthenticatedReportRoute: typeof AuthenticatedReportRoute
+  AuthenticatedReportRoute: typeof AuthenticatedReportRouteWithChildren
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedUsersRoute: typeof AuthenticatedUsersRoute
   AuthenticatedKbSlugRoute: typeof AuthenticatedKbSlugRoute
@@ -300,7 +331,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAssignmentsRoute: AuthenticatedAssignmentsRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedNotificationsRoute: AuthenticatedNotificationsRoute,
-  AuthenticatedReportRoute: AuthenticatedReportRoute,
+  AuthenticatedReportRoute: AuthenticatedReportRouteWithChildren,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedUsersRoute: AuthenticatedUsersRoute,
   AuthenticatedKbSlugRoute: AuthenticatedKbSlugRoute,

@@ -15,6 +15,7 @@ import {
   UsersRound,
   Settings2,
   ClipboardList,
+  Wand2,
 } from "lucide-react";
 import { BrandLogo } from "@/components/BrandLogo";
 import { toast } from "sonner";
@@ -34,6 +35,7 @@ const nav = [
   { to: "/assignments", label: "MIS Assignment Summary", icon: ClipboardList },
   { to: "/tickets", label: "My Tickets", icon: Ticket },
   { to: "/report", label: "Report Problem", icon: PlusCircle },
+  { to: "/report/wizard", label: "Smart Ticket Wizard", icon: Wand2 },
   { to: "/kb", label: "Knowledge Base", icon: BookOpen },
   { to: "/notifications", label: "Notifications", icon: Bell },
   { to: "/users", label: "User Management", icon: UsersRound },
@@ -257,7 +259,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     onNavigate?: () => void;
   }) {
     const visibleNav = nav.filter((item) => {
-      if (item.to === "/report") return !isMisStaff(role);
+      if (item.to === "/report" || item.to === "/report/wizard") return !isMisStaff(role);
       if (item.to === "/assignments" || item.to === "/users" || item.to === "/settings")
         return role === "admin";
       return true;
@@ -280,7 +282,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <nav className="flex-1 space-y-1 p-3">
           {visibleNav.map((item) => {
             const active =
-              item.to === "/dashboard"
+              item.to === "/dashboard" || item.to === "/report"
                 ? pathname === item.to
                 : pathname === item.to || pathname.startsWith(item.to + "/");
             return (
