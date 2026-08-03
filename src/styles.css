@@ -360,6 +360,25 @@ body {
     transform: translateY(0);
   }
 }
+@keyframes letter-rise {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: translateY(0);
+  }
+  50% {
+    opacity: 1;
+    transform: translateY(-7px);
+  }
+}
+@keyframes shimmer-sweep {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
 
 @utility animate-float {
   animation: float 6s ease-in-out infinite;
@@ -369,4 +388,10 @@ body {
 }
 @utility animate-fade-up {
   animation: fade-up 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@utility animate-letter-rise {
+  animation: letter-rise 1.3s ease-in-out infinite;
+}
+@utility animate-shimmer-sweep {
+  animation: shimmer-sweep 2.6s linear infinite;
 }

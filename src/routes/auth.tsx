@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { ArrowLeft, Building2, Loader2, Lock, Mail, ShieldCheck } from "lucide-react";
 import { BrandLogo } from "@/components/BrandLogo";
+import { LeenLoader } from "@/components/LeenLoader";
 import { disablePreviewMode, enablePreviewMode, isPreviewMode } from "@/lib/preview-auth";
 import { APP_TITLE } from "@/lib/app-meta";
 
@@ -113,11 +114,7 @@ function AuthPage() {
   };
 
   if (checking) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-      </div>
-    );
+    return <LeenLoader fullScreen />;
   }
 
   return (
