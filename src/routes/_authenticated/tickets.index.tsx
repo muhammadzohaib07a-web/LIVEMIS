@@ -31,6 +31,7 @@ import {
   TICKET_STATUS_LABELS,
   TICKET_STATUS_STYLES,
 } from "@/lib/ticket-status";
+import { APP_TITLE } from "@/lib/app-meta";
 
 type Ticket = Database["public"]["Tables"]["tickets"]["Row"];
 type Status = Database["public"]["Enums"]["ticket_status"] | "all";
@@ -41,7 +42,7 @@ type Requester = { full_name: string | null; department: string | null; email: s
 export const Route = createFileRoute("/_authenticated/tickets/")({
   head: () => ({
     meta: [
-      { title: "My Tickets — MIS Support Hub" },
+      { title: APP_TITLE },
       { name: "description", content: "Track all your MIS support tickets." },
       { property: "og:title", content: "My Tickets — MIS Support Hub" },
       { property: "og:description", content: "All your IT tickets in one place." },

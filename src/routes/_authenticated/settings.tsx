@@ -19,6 +19,7 @@ import { getCurrentUserContext } from "@/lib/current-user";
 import { FALLBACK_DEPARTMENTS } from "@/lib/departments";
 import { isPreviewMode } from "@/lib/preview-auth";
 import { MIS_TICKET_CATEGORIES } from "@/lib/ticket-categories";
+import { APP_TITLE } from "@/lib/app-meta";
 
 type CategoryRow = Database["public"]["Tables"]["issue_categories"]["Row"];
 type DepartmentRow = Database["public"]["Tables"]["departments"]["Row"];
@@ -26,7 +27,7 @@ type DepartmentRow = Database["public"]["Tables"]["departments"]["Row"];
 export const Route = createFileRoute("/_authenticated/settings")({
   head: () => ({
     meta: [
-      { title: "Master Setup — MIS Support Hub" },
+      { title: APP_TITLE },
       {
         name: "description",
         content: "Manage support categories and company departments.",

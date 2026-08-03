@@ -33,13 +33,14 @@ import {
   MIS_TICKET_CATEGORIES,
   type TicketCategoryOption,
 } from "@/lib/ticket-categories";
+import { APP_TITLE } from "@/lib/app-meta";
 
 type Article = Database["public"]["Tables"]["kb_articles"]["Row"];
 
 export const Route = createFileRoute("/_authenticated/kb/")({
   head: () => ({
     meta: [
-      { title: "Knowledge Base — MIS Support Hub" },
+      { title: APP_TITLE },
       { name: "description", content: "Self-serve IT guides and fixes for employees." },
       { property: "og:title", content: "Knowledge Base — MIS Support Hub" },
       { property: "og:description", content: "Self-serve IT help articles." },

@@ -44,6 +44,7 @@ import {
   TICKET_STATUS_LABELS,
   TICKET_STATUS_STYLES,
 } from "@/lib/ticket-status";
+import { APP_TITLE } from "@/lib/app-meta";
 
 type TicketRow = Database["public"]["Tables"]["tickets"]["Row"];
 type NotificationRow = Database["public"]["Tables"]["notifications"]["Row"];
@@ -55,7 +56,7 @@ function isAssignmentNotification(notification: Pick<NotificationRow, "title" | 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({
     meta: [
-      { title: "Dashboard — MIS Support Hub" },
+      { title: APP_TITLE },
       {
         name: "description",
         content:

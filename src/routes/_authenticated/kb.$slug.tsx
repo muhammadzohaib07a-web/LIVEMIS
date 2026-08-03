@@ -4,13 +4,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { ArrowLeft, BookOpen, Loader2, PlusCircle } from "lucide-react";
 import type { Database } from "@/integrations/supabase/types";
 import { Button } from "@/components/ui/button";
+import { APP_TITLE } from "@/lib/app-meta";
 
 type Article = Database["public"]["Tables"]["kb_articles"]["Row"];
 
 export const Route = createFileRoute("/_authenticated/kb/$slug")({
-  head: ({ params }) => ({
+  head: () => ({
     meta: [
-      { title: `${params.slug.replace(/-/g, " ")} — Knowledge Base` },
+      { title: APP_TITLE },
       { name: "description", content: "IT self-help article at MIS Support Hub." },
       { property: "og:title", content: "Knowledge Base article — MIS Support Hub" },
       { property: "og:description", content: "IT self-help article." },

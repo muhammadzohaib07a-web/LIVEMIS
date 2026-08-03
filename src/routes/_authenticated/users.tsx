@@ -39,11 +39,12 @@ import { getCurrentUserContext, type AppRole } from "@/lib/current-user";
 import { FALLBACK_DEPARTMENTS, loadDepartments, type DepartmentOption } from "@/lib/departments";
 import { isPreviewMode } from "@/lib/preview-auth";
 import { previewAgents, previewRequesters } from "@/lib/preview-data";
+import { APP_TITLE } from "@/lib/app-meta";
 
 export const Route = createFileRoute("/_authenticated/users")({
   head: () => ({
     meta: [
-      { title: "User Management — MIS Support Hub" },
+      { title: APP_TITLE },
       {
         name: "description",
         content: "MIS Head account and department user administration.",

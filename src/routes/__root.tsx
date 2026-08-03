@@ -12,6 +12,8 @@ import { useEffect, type ReactNode } from "react";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { applyTheme, getPreferredTheme } from "../lib/theme";
+import { BrandWatermark } from "../components/BrandWatermark";
+import { APP_TITLE } from "../lib/app-meta";
 
 function NotFoundComponent() {
   return (
@@ -78,13 +80,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "MIS Support Hub" },
+      { title: APP_TITLE },
       {
         name: "description",
         content: "Internal IT helpdesk for reporting, tracking, and resolving support tickets.",
       },
       { name: "author", content: "MIS Support Hub" },
-      { property: "og:title", content: "MIS Support Hub" },
+      { property: "og:title", content: APP_TITLE },
       {
         property: "og:description",
         content: "Internal IT helpdesk for reporting, tracking, and resolving support tickets.",
@@ -152,6 +154,7 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
+      <BrandWatermark />
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
       <Outlet />
     </QueryClientProvider>

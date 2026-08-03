@@ -28,6 +28,7 @@ import { storePreviewTicket } from "@/lib/preview-data";
 import { interpretGuidedReport } from "@/lib/ai-description";
 import { notifyNewTicket } from "@/lib/email-notifications";
 import type { TicketMetadata } from "@/lib/ticket-dynamic-fields";
+import { APP_TITLE } from "@/lib/app-meta";
 
 type Priority = Database["public"]["Enums"]["ticket_priority"];
 type Ticket = Database["public"]["Tables"]["tickets"]["Row"];
@@ -55,7 +56,7 @@ function readFileAsDataUrl(file: File) {
 export const Route = createFileRoute("/_authenticated/report_/wizard")({
   head: () => ({
     meta: [
-      { title: "Tell Us What Happened — MIS Support Hub" },
+      { title: APP_TITLE },
       { name: "description", content: "A simple, one-question-at-a-time way to report a problem." },
     ],
   }),

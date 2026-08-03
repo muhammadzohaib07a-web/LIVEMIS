@@ -14,17 +14,18 @@ import {
 } from "lucide-react";
 import { BrandLogo } from "@/components/BrandLogo";
 import heroDashboard from "@/assets/hero-dashboard.jpg";
+import { APP_TITLE } from "@/lib/app-meta";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "MIS Support Hub — One platform for every internal IT problem" },
+      { title: APP_TITLE },
       {
         name: "description",
         content:
           "Enterprise helpdesk for internal MIS teams. Report issues, chat live with support, track resolution, and let AI classify, summarize, and suggest fixes in real time.",
       },
-      { property: "og:title", content: "MIS Support Hub — Internal IT Helpdesk" },
+      { property: "og:title", content: APP_TITLE },
       {
         property: "og:description",
         content:

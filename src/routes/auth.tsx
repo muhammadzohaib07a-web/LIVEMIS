@@ -8,16 +8,17 @@ import { toast } from "sonner";
 import { ArrowLeft, Building2, Loader2, Lock, Mail, ShieldCheck } from "lucide-react";
 import { BrandLogo } from "@/components/BrandLogo";
 import { disablePreviewMode, enablePreviewMode, isPreviewMode } from "@/lib/preview-auth";
+import { APP_TITLE } from "@/lib/app-meta";
 
 export const Route = createFileRoute("/auth")({
   head: () => ({
     meta: [
-      { title: "Sign in — MIS Support Hub" },
+      { title: APP_TITLE },
       {
         name: "description",
         content: "Sign in to your MIS Head-managed account to report and track internal IT issues.",
       },
-      { property: "og:title", content: "Sign in — MIS Support Hub" },
+      { property: "og:title", content: APP_TITLE },
       { property: "og:description", content: "Access the internal MIS helpdesk." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },

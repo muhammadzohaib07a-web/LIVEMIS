@@ -57,6 +57,7 @@ import {
 import { mentionOptionsForRole } from "@/lib/mentions";
 import { notifyTicketAssigned } from "@/lib/email-notifications";
 import { METADATA_FIELD_LABELS } from "@/lib/ticket-dynamic-fields";
+import { APP_TITLE } from "@/lib/app-meta";
 
 const QUICK_EMOJIS = [
   "👍", "👎", "😀", "😂", "😊", "🙏", "👏", "🎉",
@@ -145,9 +146,9 @@ function renderMessageBody(body: string, mine: boolean) {
 }
 
 export const Route = createFileRoute("/_authenticated/tickets/$id")({
-  head: ({ params }) => ({
+  head: () => ({
     meta: [
-      { title: `Ticket ${params.id.slice(0, 6)} — MIS Support Hub` },
+      { title: APP_TITLE },
       { name: "description", content: "View ticket details and chat with the MIS support team." },
       { property: "og:title", content: "Ticket — MIS Support Hub" },
       { property: "og:description", content: "Ticket details and support chat." },

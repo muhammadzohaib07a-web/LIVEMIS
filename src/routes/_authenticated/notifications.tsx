@@ -12,13 +12,14 @@ import {
   markPreviewNotificationsRead,
   PREVIEW_NOTIFICATIONS_KEY,
 } from "@/lib/preview-data";
+import { APP_TITLE } from "@/lib/app-meta";
 
 type Notification = Database["public"]["Tables"]["notifications"]["Row"];
 
 export const Route = createFileRoute("/_authenticated/notifications")({
   head: () => ({
     meta: [
-      { title: "Notifications — MIS Support Hub" },
+      { title: APP_TITLE },
       { name: "description", content: "Ticket updates and MIS announcements for employees." },
       { property: "og:title", content: "Notifications — MIS Support Hub" },
       { property: "og:description", content: "Ticket updates and announcements." },

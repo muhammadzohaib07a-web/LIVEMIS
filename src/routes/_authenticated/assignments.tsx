@@ -16,13 +16,14 @@ import {
   PREVIEW_CREATED_TICKETS_KEY,
   PREVIEW_TICKET_STORAGE_KEY,
 } from "@/lib/preview-data";
+import { APP_TITLE } from "@/lib/app-meta";
 
 type TicketRow = Database["public"]["Tables"]["tickets"]["Row"];
 
 export const Route = createFileRoute("/_authenticated/assignments")({
   head: () => ({
     meta: [
-      { title: "MIS Assignment Summary — MIS Support Hub" },
+      { title: APP_TITLE },
       {
         name: "description",
         content: "Live ticket responsibility, MIS team workload, and assignment details.",
