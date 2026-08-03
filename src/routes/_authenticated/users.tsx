@@ -8,6 +8,7 @@ import {
   EyeOff,
   KeyRound,
   Loader2,
+  Mail,
   Plus,
   Search,
   ShieldCheck,
@@ -27,6 +28,7 @@ import {
 } from "@/components/ui/select";
 import {
   changeManagedUserDepartment,
+  changeManagedUserEmail,
   changeManagedUserRole,
   createManagedUser,
   listManagedUsers,
@@ -121,6 +123,9 @@ function UserManagementPage() {
   const [resetUser, setResetUser] = useState<ManagedUser | null>(null);
   const [resetPassword, setResetPassword] = useState("");
   const [showResetPassword, setShowResetPassword] = useState(false);
+  const [emailUser, setEmailUser] = useState<ManagedUser | null>(null);
+  const [newEmail, setNewEmail] = useState("");
+  const [changingEmail, setChangingEmail] = useState(false);
   const [issuedCredentials, setIssuedCredentials] = useState<{
     email: string;
     password: string;
@@ -271,6 +276,37 @@ function UserManagementPage() {
       toast.error(error instanceof Error ? error.message : "Password could not be reset");
     } finally {
       setResetting(false);
+    }
+  };
+
+  const submitEmailChange = async (event: React.FormEvent) => {
+    event.preventDefault();
+    const cleanEmail = newEmail.trim().toLowerCase();
+    if (!emailUser || !cleanEmail || !cleanEmail.includes("@")) {
+      toast.error("Enter a valid email address");
+      return;
+    }
+    setChangingEmail(true);
+    try {
+      if (isPreviewMode()) {
+        setUsers((current) =>
+          current.map((item) => (item.id === emailUser.id ? { ...item, email: cleanEmail } : item)),
+        );
+      } else {
+        await changeManagedUserEmail({ data: { userId: emailUser.id, email: cleanEmail } });
+        await loadUsers();
+      }
+      toast.success(
+        isPreviewMode()
+          ? "Demo email change shown for preview only"
+          : `Email updated to ${cleanEmail}`,
+      );
+      setEmailUser(null);
+      setNewEmail("");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Email could not be updated");
+    } finally {
+      setChangingEmail(false);
     }
   };
 
@@ -585,6 +621,53 @@ function UserManagementPage() {
         </form>
       )}
 
+      {emailUser && (
+        <form
+          onSubmit={submitEmailChange}
+          className="mb-6 rounded-2xl border border-primary/35 bg-primary/5 p-5"
+        >
+          <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+            <div className="w-full max-w-md space-y-2">
+              <Label htmlFor="new-email">
+                New Gmail address for {emailUser.fullName ?? emailUser.email}
+              </Label>
+              <div className="relative">
+                <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  id="new-email"
+                  type="email"
+                  required
+                  value={newEmail}
+                  onChange={(event) => setNewEmail(event.target.value)}
+                  className="pl-9"
+                  placeholder="name@gmail.com"
+                  autoFocus
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                They will sign in with this email going forward; the account stays confirmed.
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => {
+                  setEmailUser(null);
+                  setNewEmail("");
+                }}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={changingEmail}>
+                {changingEmail ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                Update email
+              </Button>
+            </div>
+          </div>
+        </form>
+      )}
+
       <div className="mb-4 grid gap-3 sm:grid-cols-3">
         <div className="relative">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -713,18 +796,31 @@ function UserManagementPage() {
                       {user.lastSignInAt ? new Date(user.lastSignInAt).toLocaleString() : "Never"}
                     </td>
                     <td className="px-5 py-4">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          setResetUser(user);
-                          setResetPassword("");
-                          setShowResetPassword(false);
-                        }}
-                      >
-                        <KeyRound className="mr-2 h-3.5 w-3.5" /> Reset
-                      </Button>
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setEmailUser(user);
+                            setNewEmail(user.email);
+                          }}
+                        >
+                          <Mail className="mr-2 h-3.5 w-3.5" /> Email
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setResetUser(user);
+                            setResetPassword("");
+                            setShowResetPassword(false);
+                          }}
+                        >
+                          <KeyRound className="mr-2 h-3.5 w-3.5" /> Reset
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 ))}

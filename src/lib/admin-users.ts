@@ -31,6 +31,11 @@ const changeDepartmentSchema = z.object({
   department: departmentSchema,
 });
 
+const changeEmailSchema = z.object({
+  userId: z.string().uuid(),
+  email: z.string().trim().toLowerCase().email(),
+});
+
 export type ManagedUser = {
   id: string;
   email: string;
@@ -178,6 +183,25 @@ export const changeManagedUserRole = createServerFn({ method: "POST" })
     if (data.role !== "employee") {
       await supabaseAdmin.from("profiles").update({ department: "MIS" }).eq("id", data.userId);
     }
+    return { success: true };
+  });
+
+export const changeManagedUserEmail = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator(changeEmailSchema)
+  .handler(async ({ context, data }) => {
+    await assertAdmin(context.supabase, context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(data.userId, {
+      email: data.email,
+      email_confirm: true,
+    });
+    if (authError) throw new Error(authError.message);
+    const { error: profileError } = await supabaseAdmin
+      .from("profiles")
+      .update({ email: data.email })
+      .eq("id", data.userId);
+    if (profileError) throw new Error(profileError.message);
     return { success: true };
   });
 
