@@ -26,6 +26,7 @@ import {
 import { getCurrentUserContext } from "@/lib/current-user";
 import { storePreviewTicket } from "@/lib/preview-data";
 import { analyzeIssueScreenshot, generateIssueDescription } from "@/lib/ai-description";
+import { notifyNewTicket } from "@/lib/email-notifications";
 
 type Priority = Database["public"]["Enums"]["ticket_priority"];
 type Ticket = Database["public"]["Tables"]["tickets"]["Row"];
@@ -298,6 +299,9 @@ function ReportPage() {
       body: title.trim(),
       link: `/tickets/${data.id}`,
     });
+    void notifyNewTicket({ data: { ticketId: data.id } }).catch((error) =>
+      console.error("Failed to send new-ticket email", error),
+    );
     toast.success(`Ticket ${data.ticket_no} submitted`);
     navigate({ to: "/tickets/$id", params: { id: data.id } });
   };

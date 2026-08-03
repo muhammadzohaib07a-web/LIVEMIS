@@ -55,6 +55,7 @@ import {
   TICKET_STATUS_LABELS,
 } from "@/lib/ticket-status";
 import { mentionOptionsForRole } from "@/lib/mentions";
+import { notifyTicketAssigned } from "@/lib/email-notifications";
 
 const QUICK_EMOJIS = [
   "👍", "👎", "😀", "😂", "😊", "🙏", "👏", "🎉",
@@ -800,6 +801,7 @@ function TicketDetail() {
       }
       return;
     }
+    const wasReassigned = ticket?.assignee_id !== assigneeId;
     const { error } = await supabase
       .from("tickets")
       .update({
@@ -817,6 +819,11 @@ function TicketDetail() {
           }
         : current,
     );
+    if (wasReassigned) {
+      void notifyTicketAssigned({ data: { ticketId: id, assigneeId } }).catch((notifyError) =>
+        console.error("Failed to send ticket-assigned email", notifyError),
+      );
+    }
     toast.success("Ticket assigned by MIS Head");
   };
 
