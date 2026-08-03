@@ -114,7 +114,7 @@ function AuthPage() {
   };
 
   if (checking) {
-    return <LeenLoader fullScreen />;
+    return <LeenLoader />;
   }
 
   return (
@@ -130,9 +130,9 @@ function AuthPage() {
           <ArrowLeft className="h-4 w-4" /> Back to home
         </Link>
 
-        <div className="mb-8">
+        <div className="mb-8 flex flex-col items-center text-center">
           <BrandLogo size="lg" />
-          <p className="mt-3 text-sm text-muted-foreground">
+          <p className="mt-4 text-sm text-muted-foreground">
             Secure access for textile mill employees and the MIS support team.
           </p>
         </div>

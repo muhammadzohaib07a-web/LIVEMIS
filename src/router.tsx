@@ -11,11 +11,7 @@ export const getRouter = () => {
     context: { queryClient },
     scrollRestoration: true,
     defaultPreloadStaleTime: 0,
-    defaultPendingComponent: () => (
-      <div className="flex min-h-[50vh] items-center justify-center">
-        <LeenLoader />
-      </div>
-    ),
+    defaultPendingComponent: () => <LeenLoader />,
     defaultPendingMs: 200,
     defaultPendingMinMs: 400,
   });
