@@ -114,7 +114,7 @@ function AuthPage() {
   };
 
   if (checking) {
-    return <LeenLoader />;
+    return <LeenLoader fullScreen />;
   }
 
   return (

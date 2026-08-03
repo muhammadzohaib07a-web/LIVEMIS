@@ -66,70 +66,72 @@
   --font-display: "Inter", ui-sans-serif, system-ui, sans-serif;
 }
 
-/* Light theme — crisp blue enterprise */
+/* "Light" theme — deep emerald canvas (matches the LEEN loader palette),
+   cream text, teal/emerald primary. Structurally mirrors .dark below (dark
+   base + light text + brightened accents) but in an emerald hue family. */
 :root {
   --radius: 0.75rem;
 
-  --background: oklch(0.975 0.012 255);
-  --foreground: oklch(0.19 0.035 260);
-  --surface: oklch(0.995 0.004 250);
-  --surface-elevated: oklch(0.96 0.018 250);
+  --background: oklch(0.11 0.03 165);
+  --foreground: oklch(0.96 0.015 150);
+  --surface: oklch(0.155 0.035 165);
+  --surface-elevated: oklch(0.2 0.04 165);
 
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.18 0.03 250);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.18 0.03 250);
+  --card: oklch(0.16 0.032 165);
+  --card-foreground: oklch(0.96 0.015 150);
+  --popover: oklch(0.16 0.032 165);
+  --popover-foreground: oklch(0.96 0.015 150);
 
-  --primary: oklch(0.56 0.19 250);
-  --primary-foreground: oklch(0.99 0.005 240);
-  --primary-glow: oklch(0.67 0.17 225);
+  --primary: oklch(0.68 0.15 168);
+  --primary-foreground: oklch(0.1 0.03 165);
+  --primary-glow: oklch(0.74 0.13 155);
 
-  --secondary: oklch(0.96 0.01 240);
-  --secondary-foreground: oklch(0.22 0.03 250);
+  --secondary: oklch(0.23 0.03 165);
+  --secondary-foreground: oklch(0.96 0.015 150);
 
-  --muted: oklch(0.96 0.008 240);
-  --muted-foreground: oklch(0.5 0.02 250);
+  --muted: oklch(0.21 0.028 165);
+  --muted-foreground: oklch(0.64 0.02 165);
 
-  --accent: oklch(0.61 0.16 185);
-  --accent-foreground: oklch(0.14 0.03 250);
+  --accent: oklch(0.72 0.13 185);
+  --accent-foreground: oklch(0.11 0.03 165);
 
-  --destructive: oklch(0.6 0.22 25);
+  --destructive: oklch(0.66 0.21 25);
   --destructive-foreground: oklch(0.99 0.005 240);
-  --success: oklch(0.62 0.15 155);
-  --success-foreground: oklch(0.99 0.005 240);
-  --warning: oklch(0.75 0.15 75);
-  --warning-foreground: oklch(0.2 0.03 250);
-  --info: oklch(0.6 0.14 240);
-  --info-foreground: oklch(0.99 0.005 240);
+  --success: oklch(0.7 0.15 155);
+  --success-foreground: oklch(0.12 0.03 165);
+  --warning: oklch(0.78 0.15 75);
+  --warning-foreground: oklch(0.15 0.03 165);
+  --info: oklch(0.7 0.14 240);
+  --info-foreground: oklch(0.12 0.03 165);
 
-  --border: oklch(0.88 0.022 250);
-  --input: oklch(0.91 0.02 250);
-  --ring: oklch(0.56 0.19 250);
+  --border: oklch(0.28 0.03 165);
+  --input: oklch(0.26 0.03 165);
+  --ring: oklch(0.68 0.15 168);
 
-  --chart-1: oklch(0.62 0.15 200);
-  --chart-2: oklch(0.62 0.2 290);
-  --chart-3: oklch(0.75 0.15 75);
-  --chart-4: oklch(0.62 0.15 155);
-  --chart-5: oklch(0.6 0.22 25);
+  --chart-1: oklch(0.7 0.14 168);
+  --chart-2: oklch(0.7 0.17 290);
+  --chart-3: oklch(0.78 0.15 75);
+  --chart-4: oklch(0.7 0.15 155);
+  --chart-5: oklch(0.66 0.21 25);
 
-  --sidebar: oklch(0.955 0.022 252);
-  --sidebar-foreground: oklch(0.22 0.03 250);
-  --sidebar-primary: oklch(0.56 0.19 250);
-  --sidebar-primary-foreground: oklch(0.99 0.005 240);
-  --sidebar-accent: oklch(0.96 0.01 240);
-  --sidebar-accent-foreground: oklch(0.22 0.03 250);
-  --sidebar-border: oklch(0.87 0.025 250);
-  --sidebar-ring: oklch(0.56 0.19 250);
+  --sidebar: oklch(0.1 0.03 165);
+  --sidebar-foreground: oklch(0.96 0.015 150);
+  --sidebar-primary: oklch(0.68 0.15 168);
+  --sidebar-primary-foreground: oklch(0.1 0.03 165);
+  --sidebar-accent: oklch(0.21 0.028 165);
+  --sidebar-accent-foreground: oklch(0.96 0.015 150);
+  --sidebar-border: oklch(0.26 0.03 165);
+  --sidebar-ring: oklch(0.68 0.15 168);
 
   --gradient-hero:
-    radial-gradient(ellipse 80% 60% at 50% 0%, oklch(0.56 0.19 250 / 0.16), transparent 60%),
-    radial-gradient(ellipse 60% 50% at 80% 20%, oklch(0.61 0.16 185 / 0.14), transparent 60%);
-  --gradient-primary: linear-gradient(135deg, oklch(0.56 0.19 250), oklch(0.61 0.16 185));
-  --gradient-mesh: linear-gradient(135deg, oklch(0.985 0.008 250) 0%, oklch(0.94 0.03 235) 100%);
+    radial-gradient(ellipse 80% 60% at 50% 0%, oklch(0.68 0.15 168 / 0.22), transparent 60%),
+    radial-gradient(ellipse 60% 50% at 80% 20%, oklch(0.72 0.13 185 / 0.18), transparent 60%);
+  --gradient-primary: linear-gradient(135deg, oklch(0.68 0.15 168), oklch(0.72 0.13 185));
+  --gradient-mesh: linear-gradient(135deg, oklch(0.11 0.03 165) 0%, oklch(0.16 0.035 165) 100%);
 
-  --shadow-elegant: 0 10px 40px -12px oklch(0.62 0.15 200 / 0.25);
-  --shadow-glow: 0 0 60px oklch(0.62 0.15 200 / 0.35);
-  --shadow-card: 0 1px 3px oklch(0.2 0.03 250 / 0.06), 0 8px 24px -8px oklch(0.2 0.03 250 / 0.08);
+  --shadow-elegant: 0 10px 40px -12px oklch(0.7 0.14 168 / 0.35);
+  --shadow-glow: 0 0 70px oklch(0.7 0.14 168 / 0.4);
+  --shadow-card: 0 1px 3px oklch(0 0 0 / 0.3), 0 8px 24px -8px oklch(0 0 0 / 0.4);
 }
 
 /* Dark theme — deep navy with bright blue/cyan accents */
@@ -239,12 +241,12 @@ body {
   background-attachment: fixed;
   background-repeat: no-repeat;
   background-image:
-    linear-gradient(to right, oklch(from var(--color-border) l c h / 0.6) 1px, transparent 1px),
-    linear-gradient(to bottom, oklch(from var(--color-border) l c h / 0.6) 1px, transparent 1px),
-    linear-gradient(115deg, transparent 38%, oklch(0.56 0.19 250 / 0.12) 50%, transparent 62%),
-    linear-gradient(115deg, transparent 55%, oklch(0.61 0.16 185 / 0.1) 68%, transparent 80%),
-    radial-gradient(ellipse 75% 60% at 15% -10%, oklch(0.56 0.19 250 / 0.2), transparent 62%),
-    radial-gradient(ellipse 65% 50% at 100% 0%, oklch(0.61 0.16 185 / 0.16), transparent 62%);
+    linear-gradient(to right, oklch(from var(--color-border) l c h / 0.5) 1px, transparent 1px),
+    linear-gradient(to bottom, oklch(from var(--color-border) l c h / 0.5) 1px, transparent 1px),
+    linear-gradient(115deg, transparent 40%, oklch(0.68 0.15 168 / 0.14) 50%, transparent 60%),
+    linear-gradient(115deg, transparent 58%, oklch(0.72 0.13 185 / 0.11) 68%, transparent 78%),
+    radial-gradient(ellipse 72% 55% at 18% -10%, oklch(0.68 0.15 168 / 0.18), transparent 60%),
+    radial-gradient(ellipse 62% 48% at 98% 2%, oklch(0.72 0.13 185 / 0.14), transparent 60%);
   background-size:
     48px 48px,
     48px 48px,
