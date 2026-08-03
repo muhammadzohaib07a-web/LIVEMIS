@@ -1,46 +1,28 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import anime from "animejs";
-import { getPreferredTheme } from "@/lib/theme";
 
-const PALETTES = {
-  dark: {
-    bg: "#000000",
-    beforeGradient: "radial-gradient(ellipse at 30% 20%, #141414 0%, #060606 70%, #000000 100%)",
-    textGradient:
-      "linear-gradient(135deg, #F7F5F0 0%, #F5C6C0 30%, #F7F5F0 60%, #F5A69A 80%, #F7F5F0 100%)",
-    subColor: "#A0CEC7",
-    threadColor: "#6DC3BA, #A8E6CF, #6DC3BA",
-    progressGradient: "linear-gradient(90deg, #F5A69A, #F7CAC9, #F5A69A)",
-    progressTrackBg: "rgba(247, 245, 240, 0.08)",
-    accentRgb: "245,166,154",
-    particleColors: ["#A8E6CF", "#F5A69A", "#F7F5F0", "#6DC3BA"],
-    weaveLine: "rgba(109, 195, 186, 0.3)",
-    vignette: "radial-gradient(ellipse at center, transparent 60%, rgba(0,0,0,0.55) 100%)",
-    particleGlow: "rgba(168, 230, 207, 0.2)",
-  },
-  light: {
-    bg: "#FFFFFF",
-    beforeGradient: "radial-gradient(ellipse at 30% 20%, #F2FAF7 0%, #FFFFFF 70%, #FFFFFF 100%)",
-    textGradient:
-      "linear-gradient(135deg, #16332E 0%, #C97B6E 30%, #16332E 60%, #B85C4E 80%, #16332E 100%)",
-    subColor: "#2F7C6E",
-    threadColor: "#3FA898, #1F5C50, #3FA898",
-    progressGradient: "linear-gradient(90deg, #C97B6E, #E3A79A, #C97B6E)",
-    progressTrackBg: "rgba(22, 51, 46, 0.08)",
-    accentRgb: "201,123,110",
-    particleColors: ["#2F7C6E", "#C97B6E", "#16332E", "#3FA898"],
-    weaveLine: "rgba(63, 168, 152, 0.25)",
-    vignette: "radial-gradient(ellipse at center, transparent 60%, rgba(0,0,0,0.06) 100%)",
-    particleGlow: "rgba(47, 124, 110, 0.2)",
-  },
+// One fixed, bold palette regardless of the app's light/dark setting — a
+// theme-dependent version briefly flashed white on dark-mode loads because
+// the server can't know the visitor's saved theme before hydration.
+const PALETTE = {
+  bg: "#04201B",
+  beforeGradient: "radial-gradient(ellipse at 30% 20%, #1E8A73 0%, #0B3E36 45%, #051E19 80%, #02100D 100%)",
+  textGradient:
+    "linear-gradient(135deg, #F7F5F0 0%, #F5C6C0 30%, #F7F5F0 60%, #F5A69A 80%, #F7F5F0 100%)",
+  subColor: "#A0CEC7",
+  threadColor: "#6DC3BA, #A8E6CF, #6DC3BA",
+  progressGradient: "linear-gradient(90deg, #F5A69A, #F7CAC9, #F5A69A)",
+  progressTrackBg: "rgba(247, 245, 240, 0.08)",
+  accentRgb: "245,166,154",
+  particleColors: ["#A8E6CF", "#F5A69A", "#F7F5F0", "#6DC3BA"],
+  weaveLine: "rgba(109, 195, 186, 0.3)",
+  vignette: "radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,0.55) 100%)",
+  particleGlow: "rgba(168, 230, 207, 0.25)",
 } as const;
 
-// Splash used for the auth session check and page transitions. Follows the
-// app's light/dark theme: black canvas + cream/coral accents in dark mode,
-// white canvas + deep teal/coral accents in light mode.
+// Splash used for the auth session check and page transitions.
 export function LeenLoader() {
-  const [theme] = useState(getPreferredTheme);
-  const palette = PALETTES[theme];
+  const palette = PALETTE;
 
   const particlesRef = useRef<HTMLDivElement>(null);
   const logoTextRef = useRef<HTMLSpanElement>(null);
@@ -184,7 +166,7 @@ export function LeenLoader() {
       progressAnim = anime({
         targets: { val: 0 },
         val: 100,
-        duration: 4200,
+        duration: 6000,
         easing: "easeOutCubic",
         update: (anim) => {
           const v = Math.round((anim.animations[0] as unknown as { currentValue: number }).currentValue);
