@@ -12,6 +12,7 @@ import {
   X,
   Moon,
   Sun,
+  Leaf,
   UsersRound,
   Settings2,
   ClipboardList,
@@ -145,8 +146,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   const firstName = profile?.full_name?.split(" ")[0] ?? profile?.email?.split("@")[0] ?? "there";
   const initial = firstName.charAt(0).toUpperCase();
+  const THEME_ORDER: AppTheme[] = ["light", "dark", "green"];
   const toggleTheme = () => {
-    const nextTheme: AppTheme = theme === "dark" ? "light" : "dark";
+    const nextTheme = THEME_ORDER[(THEME_ORDER.indexOf(theme) + 1) % THEME_ORDER.length];
     setTheme(nextTheme);
     applyTheme(nextTheme);
   };
@@ -203,10 +205,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               type="button"
               onClick={toggleTheme}
               className="rounded-lg border border-border/60 bg-surface/60 p-2 text-muted-foreground transition hover:border-primary/40 hover:bg-primary/10 hover:text-primary"
-              aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
-              title={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
+              aria-label={`Switch to ${
+                THEME_ORDER[(THEME_ORDER.indexOf(theme) + 1) % THEME_ORDER.length]
+              } mode`}
+              title={`Switch to ${
+                THEME_ORDER[(THEME_ORDER.indexOf(theme) + 1) % THEME_ORDER.length]
+              } mode`}
             >
-              {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+              {theme === "light" ? (
+                <Moon className="h-4 w-4" />
+              ) : theme === "dark" ? (
+                <Leaf className="h-4 w-4" />
+              ) : (
+                <Sun className="h-4 w-4" />
+              )}
             </button>
             <div className="hidden items-center gap-2 rounded-lg border border-border/60 bg-surface/60 px-3 py-1.5 text-sm sm:flex">
               <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-primary text-xs font-bold text-primary-foreground">

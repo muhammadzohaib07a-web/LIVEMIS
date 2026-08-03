@@ -2,7 +2,7 @@
 @source "../src";
 @import "tw-animate-css";
 
-@custom-variant dark (&:is(.dark *));
+@custom-variant dark (&:is(.dark *, .theme-green *));
 
 /*
  * MIS Support Hub — Enterprise Design System
@@ -196,10 +196,78 @@
   --shadow-card: 0 1px 3px oklch(0 0 0 / 0.3), 0 8px 24px -8px oklch(0 0 0 / 0.4);
 }
 
+/* Third theme option — deep emerald canvas, cream text, teal/emerald
+   primary. Opted into via the theme toggle, does not replace light/dark. */
+.theme-green {
+  --background: oklch(0.11 0.03 165);
+  --foreground: oklch(0.96 0.015 150);
+  --surface: oklch(0.155 0.035 165);
+  --surface-elevated: oklch(0.2 0.04 165);
+
+  --card: oklch(0.16 0.032 165);
+  --card-foreground: oklch(0.96 0.015 150);
+  --popover: oklch(0.16 0.032 165);
+  --popover-foreground: oklch(0.96 0.015 150);
+
+  --primary: oklch(0.68 0.15 168);
+  --primary-foreground: oklch(0.1 0.03 165);
+  --primary-glow: oklch(0.74 0.13 155);
+
+  --secondary: oklch(0.23 0.03 165);
+  --secondary-foreground: oklch(0.96 0.015 150);
+
+  --muted: oklch(0.21 0.028 165);
+  --muted-foreground: oklch(0.64 0.02 165);
+
+  --accent: oklch(0.72 0.13 185);
+  --accent-foreground: oklch(0.11 0.03 165);
+
+  --destructive: oklch(0.66 0.21 25);
+  --destructive-foreground: oklch(0.99 0.005 240);
+  --success: oklch(0.7 0.15 155);
+  --success-foreground: oklch(0.12 0.03 165);
+  --warning: oklch(0.78 0.15 75);
+  --warning-foreground: oklch(0.15 0.03 165);
+  --info: oklch(0.7 0.14 240);
+  --info-foreground: oklch(0.12 0.03 165);
+
+  --border: oklch(0.28 0.03 165);
+  --input: oklch(0.26 0.03 165);
+  --ring: oklch(0.68 0.15 168);
+
+  --chart-1: oklch(0.7 0.14 168);
+  --chart-2: oklch(0.7 0.17 290);
+  --chart-3: oklch(0.78 0.15 75);
+  --chart-4: oklch(0.7 0.15 155);
+  --chart-5: oklch(0.66 0.21 25);
+
+  --sidebar: oklch(0.1 0.03 165);
+  --sidebar-foreground: oklch(0.96 0.015 150);
+  --sidebar-primary: oklch(0.68 0.15 168);
+  --sidebar-primary-foreground: oklch(0.1 0.03 165);
+  --sidebar-accent: oklch(0.21 0.028 165);
+  --sidebar-accent-foreground: oklch(0.96 0.015 150);
+  --sidebar-border: oklch(0.26 0.03 165);
+  --sidebar-ring: oklch(0.68 0.15 168);
+
+  --gradient-hero:
+    radial-gradient(ellipse 80% 60% at 50% 0%, oklch(0.68 0.15 168 / 0.22), transparent 60%),
+    radial-gradient(ellipse 60% 50% at 80% 20%, oklch(0.72 0.13 185 / 0.18), transparent 60%);
+  --gradient-primary: linear-gradient(135deg, oklch(0.68 0.15 168), oklch(0.72 0.13 185));
+  --gradient-mesh: linear-gradient(135deg, oklch(0.11 0.03 165) 0%, oklch(0.16 0.035 165) 100%);
+
+  --shadow-elegant: 0 10px 40px -12px oklch(0.7 0.14 168 / 0.35);
+  --shadow-glow: 0 0 70px oklch(0.7 0.14 168 / 0.4);
+  --shadow-card: 0 1px 3px oklch(0 0 0 / 0.3), 0 8px 24px -8px oklch(0 0 0 / 0.4);
+}
+
 :root {
   color-scheme: light;
 }
 .dark {
+  color-scheme: dark;
+}
+.theme-green {
   color-scheme: dark;
 }
 html {
@@ -262,6 +330,15 @@ body {
     linear-gradient(115deg, transparent 60%, oklch(0.76 0.15 185 / 0.09) 68%, transparent 76%),
     radial-gradient(ellipse 70% 55% at 20% -10%, oklch(0.72 0.16 240 / 0.16), transparent 60%),
     radial-gradient(ellipse 60% 45% at 95% 5%, oklch(0.76 0.15 185 / 0.12), transparent 60%);
+}
+.theme-green body {
+  background-image:
+    linear-gradient(to right, oklch(from var(--color-border) l c h / 0.5) 1px, transparent 1px),
+    linear-gradient(to bottom, oklch(from var(--color-border) l c h / 0.5) 1px, transparent 1px),
+    linear-gradient(115deg, transparent 40%, oklch(0.68 0.15 168 / 0.14) 50%, transparent 60%),
+    linear-gradient(115deg, transparent 58%, oklch(0.72 0.13 185 / 0.11) 68%, transparent 78%),
+    radial-gradient(ellipse 72% 55% at 18% -10%, oklch(0.68 0.15 168 / 0.18), transparent 60%),
+    radial-gradient(ellipse 62% 48% at 98% 2%, oklch(0.72 0.13 185 / 0.14), transparent 60%);
 }
 @media (prefers-reduced-motion: reduce) {
   body {
