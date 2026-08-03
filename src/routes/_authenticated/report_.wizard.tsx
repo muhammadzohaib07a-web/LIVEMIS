@@ -52,7 +52,7 @@ function readFileAsDataUrl(file: File) {
   });
 }
 
-export const Route = createFileRoute("/_authenticated/report/wizard")({
+export const Route = createFileRoute("/_authenticated/report_/wizard")({
   head: () => ({
     meta: [
       { title: "Tell Us What Happened — MIS Support Hub" },
