@@ -221,6 +221,7 @@ export type Database = {
           description: string;
           follow_up_reason: string | null;
           id: string;
+          metadata: Json;
           parent_ticket_id: string | null;
           priority: Database["public"]["Enums"]["ticket_priority"];
           status: Database["public"]["Enums"]["ticket_status"];
@@ -238,6 +239,7 @@ export type Database = {
           description: string;
           follow_up_reason?: string | null;
           id?: string;
+          metadata?: Json;
           parent_ticket_id?: string | null;
           priority?: Database["public"]["Enums"]["ticket_priority"];
           status?: Database["public"]["Enums"]["ticket_status"];
@@ -255,6 +257,7 @@ export type Database = {
           description?: string;
           follow_up_reason?: string | null;
           id?: string;
+          metadata?: Json;
           parent_ticket_id?: string | null;
           priority?: Database["public"]["Enums"]["ticket_priority"];
           status?: Database["public"]["Enums"]["ticket_status"];

@@ -27,6 +27,7 @@ import { getCurrentUserContext } from "@/lib/current-user";
 import { storePreviewTicket } from "@/lib/preview-data";
 import { analyzeIssueScreenshot, generateIssueDescription } from "@/lib/ai-description";
 import { notifyNewTicket } from "@/lib/email-notifications";
+import { getModuleFields, type TicketMetadata } from "@/lib/ticket-dynamic-fields";
 
 type Priority = Database["public"]["Enums"]["ticket_priority"];
 type Ticket = Database["public"]["Tables"]["tickets"]["Row"];
@@ -84,6 +85,11 @@ function ReportPage() {
   const [analyzingScreenshot, setAnalyzingScreenshot] = useState(false);
   const [screenshot, setScreenshot] = useState<{ file: File; dataUrl: string } | null>(null);
   const [requesterDepartment, setRequesterDepartment] = useState("Loading...");
+  const [moduleFieldValues, setModuleFieldValues] = useState<Record<string, string>>({});
+  const [errorMessage, setErrorMessage] = useState("");
+  const [workStopped, setWorkStopped] = useState(false);
+  const [affectedUsers, setAffectedUsers] = useState(1);
+  const moduleFields = getModuleFields(category);
   const generatingDescriptionRef = useRef(false);
 
   useEffect(() => {
@@ -203,6 +209,16 @@ function ReportPage() {
       toast.error("Please add a title and description");
       return;
     }
+    const metadata: TicketMetadata = {
+      ...(errorMessage.trim() ? { errorMessage: errorMessage.trim() } : {}),
+      workStopped,
+      affectedUsers,
+      ...Object.fromEntries(
+        moduleFields
+          .map((field) => [field.key, moduleFieldValues[field.key]?.trim()])
+          .filter(([, value]) => Boolean(value)),
+      ),
+    };
     setLoading(true);
     if (isPreviewMode()) {
       const context = await getCurrentUserContext();
@@ -233,6 +249,7 @@ function ReportPage() {
               },
             ]
           : [],
+        metadata,
         parent_ticket_id: null,
         follow_up_reason: null,
         closed_at: null,
@@ -285,6 +302,7 @@ function ReportPage() {
         category,
         priority,
         attachments,
+        metadata,
       })
       .select("id, ticket_no")
       .single();
@@ -396,7 +414,13 @@ function ReportPage() {
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label>Category</Label>
-              <Select value={category} onValueChange={(v) => setCategory(v as TicketCategory)}>
+              <Select
+                value={category}
+                onValueChange={(v) => {
+                  setCategory(v as TicketCategory);
+                  setModuleFieldValues({});
+                }}
+              >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -424,6 +448,83 @@ function ReportPage() {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+          </div>
+
+          {moduleFields.length > 0 && (
+            <div className="space-y-3 rounded-xl border border-border/60 bg-background/40 p-4">
+              <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                Reference details for {categories.find((c) => c.value === category)?.label ?? category}
+              </p>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {moduleFields.map((field) => (
+                  <div key={field.key} className="space-y-1.5">
+                    <Label htmlFor={`field-${field.key}`}>{field.label}</Label>
+                    <Input
+                      id={`field-${field.key}`}
+                      value={moduleFieldValues[field.key] ?? ""}
+                      onChange={(e) =>
+                        setModuleFieldValues((current) => ({
+                          ...current,
+                          [field.key]: e.target.value,
+                        }))
+                      }
+                      placeholder={field.placeholder ?? "Optional, but speeds up investigation"}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="grid gap-4 rounded-xl border border-border/60 bg-background/40 p-4 sm:grid-cols-[1fr_auto_auto]">
+            <div className="space-y-1.5">
+              <Label htmlFor="error-message">Exact error message (if any)</Label>
+              <Input
+                id="error-message"
+                value={errorMessage}
+                onChange={(e) => setErrorMessage(e.target.value)}
+                placeholder="Copy-paste the error text shown on screen"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Work stopped?</Label>
+              <div className="flex overflow-hidden rounded-md border border-input">
+                <button
+                  type="button"
+                  onClick={() => setWorkStopped(true)}
+                  className={`px-3 py-2 text-xs font-semibold transition ${
+                    workStopped
+                      ? "bg-destructive text-destructive-foreground"
+                      : "bg-transparent text-muted-foreground hover:bg-muted"
+                  }`}
+                >
+                  Yes
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setWorkStopped(false)}
+                  className={`px-3 py-2 text-xs font-semibold transition ${
+                    !workStopped
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-transparent text-muted-foreground hover:bg-muted"
+                  }`}
+                >
+                  No
+                </button>
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="affected-users">Affected users</Label>
+              <Input
+                id="affected-users"
+                type="number"
+                min={1}
+                max={9999}
+                className="w-24"
+                value={affectedUsers}
+                onChange={(e) => setAffectedUsers(Math.max(1, Number(e.target.value) || 1))}
+              />
             </div>
           </div>
 

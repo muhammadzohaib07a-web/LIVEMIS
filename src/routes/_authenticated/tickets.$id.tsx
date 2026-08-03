@@ -56,6 +56,7 @@ import {
 } from "@/lib/ticket-status";
 import { mentionOptionsForRole } from "@/lib/mentions";
 import { notifyTicketAssigned } from "@/lib/email-notifications";
+import { METADATA_FIELD_LABELS } from "@/lib/ticket-dynamic-fields";
 
 const QUICK_EMOJIS = [
   "👍", "👎", "😀", "😂", "😊", "🙏", "👏", "🎉",
@@ -113,6 +114,13 @@ function getTicketAttachments(value: unknown): TicketAttachment[] {
       typeof (item as TicketAttachment).type === "string" &&
       typeof (item as TicketAttachment).size === "number",
   );
+}
+
+function getTicketMetadataEntries(value: unknown): [string, string][] {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return [];
+  return Object.entries(value as Record<string, unknown>)
+    .filter(([, v]) => v !== null && v !== undefined && v !== "")
+    .map(([key, v]) => [key, typeof v === "boolean" ? (v ? "Yes" : "No") : String(v)]);
 }
 
 const MENTION_TAGS = ["@Everyone", "@Admin", "@Employee", "@Team"];
@@ -714,6 +722,7 @@ function TicketDetail() {
         priority: ticket.priority,
         status: "open",
         attachments: [],
+        metadata: {},
         closed_at: null,
         created_at: createdAt,
         updated_at: createdAt,
@@ -985,6 +994,23 @@ function TicketDetail() {
             <p className="mt-3 whitespace-pre-wrap text-sm text-muted-foreground">
               {ticket.description}
             </p>
+            {getTicketMetadataEntries(ticket.metadata).length > 0 && (
+              <div className="mt-4">
+                <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                  Reference details
+                </p>
+                <div className="grid gap-x-4 gap-y-1.5 rounded-xl border border-border/60 bg-background/40 p-3 text-xs sm:grid-cols-2">
+                  {getTicketMetadataEntries(ticket.metadata).map(([key, value]) => (
+                    <div key={key}>
+                      <span className="text-muted-foreground">
+                        {METADATA_FIELD_LABELS[key] ?? key}:{" "}
+                      </span>
+                      <span className="font-medium">{value}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             {getTicketAttachments(ticket.attachments).length > 0 && (
               <div className="mt-5">
                 <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
