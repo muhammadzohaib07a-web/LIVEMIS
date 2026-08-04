@@ -35,6 +35,70 @@ Return JSON only, no markdown, in this exact shape:
 - type "solution": message is numbered steps (use \\n between steps) they can try themselves.
 - type "escalate": message briefly explains why this needs MIS/IT staff directly.`;
 
+// Structural facts about this company's real Odoo 17 Community instance —
+// installed modules, workflow states/buttons, custom fields, and known
+// error strings — gathered directly from their Odoo. Static (doesn't need
+// a live DB query), so it's baked into the prompt rather than fetched.
+const ODOO_REFERENCE = `COMPANY ODOO REFERENCE — LEEN TEXTILE (Odoo 17 Community, self-hosted). Use these exact names, states, buttons, and error strings whenever relevant instead of generic/standard Odoo assumptions — this instance is heavily customized, especially manufacturing.
+
+1. INSTALLED MODULES (111 total)
+Core: base, mail, contacts, calendar, mrp, sale, sale_management, purchase, stock, account, project
+Manufacturing extras: mrp_account, mrp_costing_report (custom), mrp_subcontracting, mrp_subcontracting_account/purchase
+Custom/business-specific: production_stage_tracking, fabric_consumption_report, fg_purchase_production_report, greige_inventory_report, leen_quality_check, textile_variant_report, store_transfer_sales_report, warehouse_sales_inventory_report, custom_invoice_report, custom_customer, gatepass_management, str_detail_report
+Sales/Purchase extras: sale_stock, sale_mrp, sale_project, purchase_stock, purchase_mrp, sale_purchase_stock
+Project: project, project_mrp, project_account, project_stock, project_purchase
+Accounting: account_edi_ubl_cii, invoice_qweb_report, invoice_summary_report
+Other: barcodes, digest, spreadsheet_dashboard, api_doc, l10n_us
+
+2. MANUFACTURING ORDER (MO) WORKFLOW
+States in order: draft (Draft) -> confirmed (Confirmed) -> progress (In Progress) -> to_close (To Close) -> done (Done), or cancel (Cancelled) at any point.
+Buttons: Confirm (visible when draft) -> Start (confirmed) -> Plan (confirmed/progress/to_close) -> Check availability (any state except draft/done/cancel) -> Produce / Produce All (marks done) -> Cancel. Unbuild button appears after done.
+
+3. SALES ORDER (SO) WORKFLOW
+States: draft (Quotation) -> sent (Quotation Sent) -> sale (Sales Order) -> cancel (Cancelled), plus a separate "locked" boolean controlled by Lock/Unlock.
+Buttons: Send -> Send PRO-FORMA Invoice -> Confirm (Quotation to Sales Order) -> Lock/Unlock -> Set to Quotation (reverts to draft) -> Cancel.
+
+4. PURCHASE ORDER (PO) WORKFLOW
+States: draft (RFQ) -> sent (RFQ Sent) -> to approve (To Approve) -> purchase (Purchase Order) -> cancel (Cancelled), plus a separate "locked" boolean.
+Buttons: Send RFQ -> Confirm Order -> Approve Order (only visible to Purchase Manager group, needed above the approval threshold) -> Send PO (once purchase) -> Lock/Unlock (Unlock needs Purchase Manager) -> Set to Draft (from cancel) -> Cancel -> Print.
+
+5. WAREHOUSES & OPERATION TYPES
+Warehouses: LEEN TEXTILE (PRIVATE) LIMITED [WH] (the real one; others are demo/unused: My Company-domain module, My Company-emporium, Dolmen mall, packages, My Company Chicago).
+Standard operation types: Receipts, Delivery Orders, Pick, Pack, Quality Control, Storage, Internal Transfers, Cross Dock, Pick Components, Store Finished Product, Manufacturing, Subcontracting, Resupply Subcontractor.
+Custom operation types (Leen Textile only, part of the stage-transfer workflow): Stitching OUT, Packing IN, Embroidery OUT, Cutting IN, Cutting OUT.
+Routes: Manufacture, Buy, Resupply Subcontractor on Order, plus per-warehouse Receive/Deliver/Manufacture steps.
+
+6. CUSTOM MULTI-STAGE PRODUCTION WORKFLOW (production_stage_tracking module)
+Finished goods move through sequential production stages, each its own linked MO: Cutting -> Embroidery -> Stitching -> Packing. Material moves between stages via stock transfers (custom operation types above). An MO cannot start until its incoming stage transfer(s) are Done and its Quality Check has passed. MO numbering carries a stage prefix that drives which stage it belongs to: CUTP-MO-XXXXX (Cutting), EMBP-MO-XXXXX (Embroidery), STIPR-MO-XXXXX (Stitching), PACKP-MO-XXXXX (Packing). Generic/non-staged MOs use WH/MO/00001. Backorders append -001, -002 etc (e.g. WH/MO/00006-002-001).
+
+7. QUALITY CHECKS (custom model: leen.quality.check)
+States: draft -> in_progress -> passed / failed (or cancel). Triggered by the stage workflow above — a Quality Check must be created and marked passed before production can start on a stage MO; a failed check blocks production until resolved. Tracked fields: passed_qty, failed_qty, rework_qty, checked_date.
+
+8. CUSTOM FIELDS (not standard Odoo, all prefixed x_)
+product.template: x_card_number, x_article_design_no, x_collection, x_product_group, x_brand, x_designer, x_product_type, x_fabric_type, x_fabric, x_pattern, x_season, x_product_line, x_internal_reference_base, x_product_number.
+mrp.production: x_stage_parent_mo_id, x_stage_root_mo_id, x_stage_child_mo_ids, x_production_stage, x_article_number, x_card_number, x_availability_checked, x_incoming_stage_transfer_ids, x_outgoing_stage_transfer_ids, x_workflow_quality_check_ids, x_workflow_state, x_pending_transfer_count.
+stock.picking: x_is_stage_transfer, x_stage_transfer_direction, x_stage_from, x_stage_to, x_stage_from_mo_id, x_stage_to_mo_id, x_stage_pair_picking_id, x_auto_stage_transfer.
+purchase/sale (fg_purchase_production_report): x_fcr_purchase_id, x_fcr_purchase_line_id, x_fcr_sale_id, x_fcr_sale_line_id.
+
+9. USER ROLES / ACCESS GROUPS
+mrp.group_mrp_user (Manufacturing: User) — read access to custom costing/tracking reports.
+mrp.group_mrp_manager (Manufacturing: Administrator) — full access to costing config.
+account.group_account_user / account.group_account_readonly — accounting staff, read-only on costing reports.
+base.group_system / base.group_user — standard Odoo Settings admin / Internal User.
+purchase.group_purchase_manager — required for the PO "Approve Order" and "Unlock" buttons.
+
+10. COMMON ERROR / VALIDATION MESSAGES (exact text, custom stage workflow)
+"Complete the incoming stage transfer(s) first: [transfers]. After they are Done, click Check Availability."
+"Material is not ready for [MO]. Complete the required transfers and then click Check Availability."
+"Create and pass the Quality Check before starting [MO]."
+"Production is blocked because Quality Check(s) failed: [checks]."
+"Pass all Quality Checks before starting production: [checks]."
+Native Odoo: a "Consumption Warning" wizard appears if actual material consumption differs from the BOM-expected quantity when marking an MO done.
+
+11. NUMBERING / SEQUENCE CONVENTIONS
+Manufacturing Orders: WH/MO/00001 generic, or stage-prefixed as in section 6.
+Sales Orders: S00001. Purchase Orders: P00001. Internal transfers: INT/00001; warehouse receipts/deliveries use WH/IN/, WH/OUT/ etc per operation type. Unbuild: UB/00001. Scrap: SP/00001.`;
+
 async function loadKbContext(): Promise<string> {
   try {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -61,9 +125,11 @@ export const chatWithAssistant = createServerFn({ method: "POST" })
     }
 
     const kbContext = await loadKbContext();
-    const systemPrompt = kbContext
-      ? `${SYSTEM_PROMPT_BASE}\n\nReference knowledge base articles for this specific company — use these as your primary source of truth and prefer their documented steps over generic advice:\n\n${kbContext}`
-      : SYSTEM_PROMPT_BASE;
+    const systemPrompt =
+      `${SYSTEM_PROMPT_BASE}\n\n${ODOO_REFERENCE}` +
+      (kbContext
+        ? `\n\nReference knowledge base articles for this specific company — use these as your primary source of truth and prefer their documented steps over generic advice:\n\n${kbContext}`
+        : "");
 
     const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
