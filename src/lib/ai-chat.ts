@@ -28,6 +28,7 @@ Rules:
 3. Only use "escalate" for things an employee genuinely cannot do themselves — server/database access, changing permissions or roles, ordering or replacing hardware, a company-wide outage, or anything requiring admin credentials. Do NOT escalate just because the issue isn't in the reference articles or isn't a common case — diagnose and solve it yourself using general expertise like a real technician would. Escalate only when the fix truly requires MIS-level access, not out of uncertainty.
 4. Don't invent specific facts you were told you don't have (e.g. a specific error code the employee never mentioned) — ask instead. But do apply general troubleshooting knowledge confidently; that is the whole point of this assistant.
 5. Common issue areas at this company: sales/purchase orders, inventory/warehouse, manufacturing work orders, quality checks, printers, network/Wi-Fi, email/Outlook, login/access, attendance/biometric devices, CCTV, backups.
+6. Language: detect what the employee is writing in and reply the same way. If they write in Urdu script or Roman Urdu (Urdu words spelled out in English letters, e.g. "printer nahi chal raha"), reply in Roman Urdu too. If they write in English, reply in English. Never switch them to a language they did not use.
 
 Return JSON only, no markdown, in this exact shape:
 { "type": "question" | "solution" | "escalate", "message": "..." }
@@ -116,6 +117,43 @@ async function loadKbContext(): Promise<string> {
   }
 }
 
+// Tried in order; if the first model errors, is rate-limited, or returns a
+// response that doesn't parse as valid JSON, the next one is tried instead
+// of surfacing an error to the employee.
+const FALLBACK_MODELS = ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"];
+
+async function callGroq(apiKey: string, model: string, systemPrompt: string, data: z.infer<typeof chatInputSchema>) {
+  const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model,
+      temperature: 0.2,
+      max_completion_tokens: 500,
+      response_format: { type: "json_object" },
+      messages: [
+        { role: "system", content: systemPrompt },
+        ...data.messages.map((message) => ({ role: message.role, content: message.content })),
+      ],
+    }),
+  });
+
+  const payload = (await response.json()) as GroqResponse;
+  if (!response.ok) {
+    throw new Error(payload.error?.message ?? `AI model ${model} could not respond.`);
+  }
+
+  const content = payload.choices?.[0]?.message?.content?.trim();
+  if (!content) throw new Error(`AI model ${model} returned an empty response.`);
+
+  const parsed: unknown = JSON.parse(content.replace(/^```json\s*|\s*```$/g, ""));
+  const result = chatResultSchema.parse(parsed);
+  return result;
+}
+
 export const chatWithAssistant = createServerFn({ method: "POST" })
   .validator(chatInputSchema)
   .handler(async ({ data }) => {
@@ -131,42 +169,16 @@ export const chatWithAssistant = createServerFn({ method: "POST" })
         ? `\n\nReference knowledge base articles for this specific company — use these as your primary source of truth and prefer their documented steps over generic advice:\n\n${kbContext}`
         : "");
 
-    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "llama-3.3-70b-versatile",
-        temperature: 0.2,
-        max_completion_tokens: 500,
-        response_format: { type: "json_object" },
-        messages: [
-          { role: "system", content: systemPrompt },
-          ...data.messages.map((message) => ({ role: message.role, content: message.content })),
-        ],
-      }),
-    });
-
-    const payload = (await response.json()) as GroqResponse;
-    if (!response.ok) {
-      throw new Error(payload.error?.message ?? "AI assistant could not respond.");
+    let lastError: unknown;
+    for (const model of FALLBACK_MODELS) {
+      try {
+        return await callGroq(apiKey, model, systemPrompt, data);
+      } catch (error) {
+        console.error(`[ai-chat] model ${model} failed, trying next fallback:`, error);
+        lastError = error;
+      }
     }
-
-    const content = payload.choices?.[0]?.message?.content?.trim();
-    if (!content) throw new Error("AI assistant returned an empty response.");
-
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(content.replace(/^```json\s*|\s*```$/g, ""));
-    } catch {
-      throw new Error("AI assistant returned an invalid response. Please try again.");
-    }
-    const result = chatResultSchema.safeParse(parsed);
-    if (!result.success) {
-      throw new Error("AI assistant response was incomplete. Please try again.");
-    }
-
-    return result.data;
+    throw lastError instanceof Error
+      ? lastError
+      : new Error("AI assistant could not respond. Please try again.");
   });
