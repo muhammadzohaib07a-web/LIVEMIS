@@ -17,6 +17,7 @@ import {
   Settings2,
   ClipboardList,
   Wand2,
+  Bot,
 } from "lucide-react";
 import { BrandLogo } from "@/components/BrandLogo";
 import { toast } from "sonner";
@@ -37,6 +38,7 @@ const nav = [
   { to: "/tickets", label: "My Tickets", icon: Ticket },
   { to: "/report", label: "Report Problem", icon: PlusCircle },
   { to: "/report/wizard", label: "Smart Ticket Wizard", icon: Wand2 },
+  { to: "/assistant", label: "AI Assistant", icon: Bot },
   { to: "/kb", label: "Knowledge Base", icon: BookOpen },
   { to: "/notifications", label: "Notifications", icon: Bell },
   { to: "/users", label: "User Management", icon: UsersRound },
@@ -271,7 +273,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     onNavigate?: () => void;
   }) {
     const visibleNav = nav.filter((item) => {
-      if (item.to === "/report" || item.to === "/report/wizard") return !isMisStaff(role);
+      if (item.to === "/report" || item.to === "/report/wizard" || item.to === "/assistant")
+        return !isMisStaff(role);
       if (item.to === "/assignments" || item.to === "/users" || item.to === "/settings")
         return role === "admin";
       return true;

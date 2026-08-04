@@ -75,6 +75,10 @@ const guidedInterviewResultSchema = z.object({
   priority: z.enum(["low", "medium", "high", "urgent"]),
 });
 
+const chatTranscriptInputSchema = z.object({
+  transcript: z.string().trim().min(1).max(6000),
+});
+
 type GroqResponse = {
   choices?: Array<{
     message?: {
@@ -163,8 +167,7 @@ export const analyzeIssueScreenshot = createServerFn({ method: "POST" })
         messages: [
           {
             role: "system",
-            content:
-              `Analyze screenshots for a textile mill MIS helpdesk. Return JSON only with: category and description. category must be the single closest match from: ${ticketCategories.join(", ")} — prefer a specific odoo-* or textile-* value over the generic "odoo" or "other" whenever the screenshot clearly shows that module or process. description must be an array of exactly four short, simple-English lines. Mention visible application names and error text when useful. Do not invent facts. The last line may give one safe next step, but never claim the issue is already fixed.`,
+            content: `Analyze screenshots for a textile mill MIS helpdesk. Return JSON only with: category and description. category must be the single closest match from: ${ticketCategories.join(", ")} — prefer a specific odoo-* or textile-* value over the generic "odoo" or "other" whenever the screenshot clearly shows that module or process. description must be an array of exactly four short, simple-English lines. Mention visible application names and error text when useful. Do not invent facts. The last line may give one safe next step, but never claim the issue is already fixed.`,
           },
           {
             role: "user",
@@ -251,6 +254,70 @@ What happened: ${data.whatHappened}
 Did work stop completely: ${data.workStopped ? "yes" : "no"}
 Number of people affected: ${data.affectedUsers}`,
           },
+        ],
+      }),
+    });
+
+    const payload = (await response.json()) as GroqResponse;
+    if (!response.ok) {
+      throw new Error(payload.error?.message ?? "AI could not prepare the ticket.");
+    }
+
+    const content = payload.choices?.[0]?.message?.content?.trim();
+    if (!content) throw new Error("AI returned an empty response.");
+
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(content.replace(/^```json\s*|\s*```$/g, ""));
+    } catch {
+      throw new Error("AI returned an invalid response. Please try again.");
+    }
+    const result = guidedInterviewResultSchema.safeParse(parsed);
+    if (!result.success) {
+      throw new Error("AI response was incomplete. Please try again.");
+    }
+
+    return {
+      title: result.data.title,
+      description: result.data.description.join("\n"),
+      category: result.data.category,
+      priority: result.data.priority,
+    };
+  });
+
+// Turns an AI-assistant chat transcript that could not resolve the issue
+// into a proper ticket (title, description, category, priority) so nothing
+// discussed in the chat has to be retyped when escalating to MIS.
+export const summarizeChatForTicket = createServerFn({ method: "POST" })
+  .validator(chatTranscriptInputSchema)
+  .handler(async ({ data }) => {
+    const apiKey = process.env.GROQ_API_KEY;
+    if (!apiKey) {
+      throw new Error("AI service is not configured.");
+    }
+
+    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "llama-3.1-8b-instant",
+        temperature: 0.2,
+        max_completion_tokens: 300,
+        response_format: { type: "json_object" },
+        messages: [
+          {
+            role: "system",
+            content: `You turn a support-chat transcript between an employee and an AI assistant into a professional MIS ticket for a textile mill running Odoo. The AI assistant could not resolve the issue itself, so MIS needs to take over.
+Return JSON only with: title, description, category, priority.
+- title: short, specific summary (under 12 words).
+- description: an array of exactly four short, simple-English lines summarizing the problem and what was already tried/ruled out in the chat, so MIS does not repeat those questions.
+- category must be the single closest match from: ${ticketCategories.join(", ")} — prefer a specific odoo-* or textile-* value over the generic "odoo" or "other" whenever the transcript clearly points to that module or process.
+- priority must be one of low, medium, high, urgent, based on how disruptive the issue sounds.`,
+          },
+          { role: "user", content: data.transcript },
         ],
       }),
     });
