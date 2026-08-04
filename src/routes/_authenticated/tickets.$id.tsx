@@ -58,6 +58,7 @@ import { mentionOptionsForRole } from "@/lib/mentions";
 import { notifyTicketAssigned } from "@/lib/email-notifications";
 import { METADATA_FIELD_LABELS } from "@/lib/ticket-dynamic-fields";
 import { APP_TITLE } from "@/lib/app-meta";
+import { compressImage } from "@/lib/compress-image";
 
 const QUICK_EMOJIS = [
   "👍", "👎", "😀", "😂", "😊", "🙏", "👏", "🎉",
@@ -537,19 +538,23 @@ function TicketDetail() {
     });
   };
 
-  const handleFilesSelected = (files: FileList | null) => {
+  const handleFilesSelected = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
-    const accepted: File[] = [];
-    for (const file of Array.from(files)) {
+    const candidates = Array.from(files).filter((file) => {
       if (!CHAT_ATTACHMENT_TYPES.includes(file.type)) {
         toast.error(`${file.name}: unsupported file type`);
-        continue;
+        return false;
       }
-      if (file.size > CHAT_ATTACHMENT_MAX_SIZE) {
+      return true;
+    });
+    const accepted: File[] = [];
+    for (const file of candidates) {
+      const processed = await compressImage(file);
+      if (processed.size > CHAT_ATTACHMENT_MAX_SIZE) {
         toast.error(`${file.name}: file is larger than 10MB`);
         continue;
       }
-      accepted.push(file);
+      accepted.push(processed);
     }
     if (accepted.length > 0) setPendingFiles((current) => [...current, ...accepted]);
   };
@@ -1353,7 +1358,7 @@ function TicketDetail() {
                   hidden
                   accept={CHAT_ATTACHMENT_TYPES.join(",")}
                   onChange={(e) => {
-                    handleFilesSelected(e.target.files);
+                    void handleFilesSelected(e.target.files);
                     e.target.value = "";
                   }}
                 />
