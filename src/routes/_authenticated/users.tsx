@@ -12,7 +12,9 @@ import {
   Plus,
   Search,
   ShieldCheck,
+  Trash2,
   UserCog,
+  UserPen,
   UsersRound,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -29,8 +31,10 @@ import {
 import {
   changeManagedUserDepartment,
   changeManagedUserEmail,
+  changeManagedUserName,
   changeManagedUserRole,
   createManagedUser,
+  deleteManagedUser,
   listManagedUsers,
   resetManagedUserPassword,
   type ManagedUser,
@@ -127,6 +131,11 @@ function UserManagementPage() {
   const [emailUser, setEmailUser] = useState<ManagedUser | null>(null);
   const [newEmail, setNewEmail] = useState("");
   const [changingEmail, setChangingEmail] = useState(false);
+  const [nameUser, setNameUser] = useState<ManagedUser | null>(null);
+  const [newName, setNewName] = useState("");
+  const [changingName, setChangingName] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<ManagedUser | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const [issuedCredentials, setIssuedCredentials] = useState<{
     email: string;
     password: string;
@@ -308,6 +317,62 @@ function UserManagementPage() {
       toast.error(error instanceof Error ? error.message : "Email could not be updated");
     } finally {
       setChangingEmail(false);
+    }
+  };
+
+  const submitNameChange = async (event: React.FormEvent) => {
+    event.preventDefault();
+    const cleanName = newName.trim();
+    if (!nameUser || cleanName.length < 2) {
+      toast.error("Enter a valid full name");
+      return;
+    }
+    setChangingName(true);
+    try {
+      if (isPreviewMode()) {
+        setUsers((current) =>
+          current.map((item) =>
+            item.id === nameUser.id ? { ...item, fullName: cleanName } : item,
+          ),
+        );
+      } else {
+        await changeManagedUserName({ data: { userId: nameUser.id, fullName: cleanName } });
+        await loadUsers();
+      }
+      toast.success(
+        isPreviewMode()
+          ? "Demo name change shown for preview only"
+          : `Name updated to ${cleanName}`,
+      );
+      setNameUser(null);
+      setNewName("");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Name could not be updated");
+    } finally {
+      setChangingName(false);
+    }
+  };
+
+  const confirmDeleteUser = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      if (isPreviewMode()) {
+        setUsers((current) => current.filter((item) => item.id !== deleteTarget.id));
+      } else {
+        await deleteManagedUser({ data: { userId: deleteTarget.id } });
+        await loadUsers();
+      }
+      toast.success(
+        isPreviewMode()
+          ? "Demo account removed for preview only"
+          : `${deleteTarget.fullName ?? deleteTarget.email} was deleted`,
+      );
+      setDeleteTarget(null);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Account could not be deleted");
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -669,6 +734,80 @@ function UserManagementPage() {
         </form>
       )}
 
+      {nameUser && (
+        <form
+          onSubmit={submitNameChange}
+          className="mb-6 rounded-2xl border border-primary/35 bg-primary/5 p-5"
+        >
+          <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+            <div className="w-full max-w-md space-y-2">
+              <Label htmlFor="new-name">
+                New full name for {nameUser.fullName ?? nameUser.email}
+              </Label>
+              <div className="relative">
+                <UserPen className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  id="new-name"
+                  required
+                  minLength={2}
+                  value={newName}
+                  onChange={(event) => setNewName(event.target.value)}
+                  className="pl-9"
+                  placeholder="Full name"
+                  autoFocus
+                />
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => {
+                  setNameUser(null);
+                  setNewName("");
+                }}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={changingName}>
+                {changingName ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                Update name
+              </Button>
+            </div>
+          </div>
+        </form>
+      )}
+
+      {deleteTarget && (
+        <div className="mb-6 rounded-2xl border border-destructive/40 bg-destructive/10 p-5">
+          <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+            <div>
+              <p className="font-bold text-destructive">
+                Delete {deleteTarget.fullName ?? deleteTarget.email}?
+              </p>
+              <p className="mt-1 max-w-md text-sm text-muted-foreground">
+                This permanently removes their login and profile. If they have existing tickets or
+                chat messages, deletion may be blocked until those are reassigned or resolved.
+              </p>
+            </div>
+            <div className="flex shrink-0 gap-2">
+              <Button type="button" variant="ghost" onClick={() => setDeleteTarget(null)}>
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                variant="destructive"
+                disabled={deleting}
+                onClick={() => void confirmDeleteUser()}
+              >
+                {deleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                Delete permanently
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="mb-4 grid gap-3 sm:grid-cols-3">
         <div className="relative">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -803,6 +942,17 @@ function UserManagementPage() {
                           variant="outline"
                           size="sm"
                           onClick={() => {
+                            setNameUser(user);
+                            setNewName(user.fullName ?? "");
+                          }}
+                        >
+                          <UserPen className="mr-2 h-3.5 w-3.5" /> Name
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
                             setEmailUser(user);
                             setNewEmail(user.email);
                           }}
@@ -820,6 +970,15 @@ function UserManagementPage() {
                           }}
                         >
                           <KeyRound className="mr-2 h-3.5 w-3.5" /> Reset
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="border-destructive/40 text-destructive hover:bg-destructive/10"
+                          onClick={() => setDeleteTarget(user)}
+                        >
+                          <Trash2 className="mr-2 h-3.5 w-3.5" /> Delete
                         </Button>
                       </div>
                     </td>

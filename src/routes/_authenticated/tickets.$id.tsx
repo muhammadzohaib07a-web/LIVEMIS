@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -61,10 +61,38 @@ import { APP_TITLE } from "@/lib/app-meta";
 import { compressImage } from "@/lib/compress-image";
 
 const QUICK_EMOJIS = [
-  "👍", "👎", "😀", "😂", "😊", "🙏", "👏", "🎉",
-  "✅", "❌", "🔥", "💯", "😢", "😡", "🤔", "👀",
-  "🚀", "⚠️", "📌", "⏰", "💡", "🙌", "🤝", "😅",
-  "🛠️", "📎", "📄", "🔧", "💻", "🖨️", "📊", "🧾",
+  "👍",
+  "👎",
+  "😀",
+  "😂",
+  "😊",
+  "🙏",
+  "👏",
+  "🎉",
+  "✅",
+  "❌",
+  "🔥",
+  "💯",
+  "😢",
+  "😡",
+  "🤔",
+  "👀",
+  "🚀",
+  "⚠️",
+  "📌",
+  "⏰",
+  "💡",
+  "🙌",
+  "🤝",
+  "😅",
+  "🛠️",
+  "📎",
+  "📄",
+  "🔧",
+  "💻",
+  "🖨️",
+  "📊",
+  "🧾",
 ];
 
 const CHAT_ATTACHMENT_MAX_SIZE = 10 * 1024 * 1024; // 10MB, matches storage bucket limit
@@ -127,23 +155,42 @@ function getTicketMetadataEntries(value: unknown): [string, string][] {
 
 const MENTION_TAGS = ["@Everyone", "@Admin", "@Employee", "@Team"];
 
+function isSameDay(a: Date, b: Date) {
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  );
+}
+
+function formatDateSeparator(date: Date) {
+  const today = new Date();
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+  if (isSameDay(date, today)) return "Today";
+  if (isSameDay(date, yesterday)) return "Yesterday";
+  return date.toLocaleDateString([], {
+    month: "short",
+    day: "numeric",
+    year: date.getFullYear() === today.getFullYear() ? undefined : "numeric",
+  });
+}
+
 function renderMessageBody(body: string, mine: boolean) {
-  return body
-    .split(/(@Everyone|@Admin|@Employee|@Team)/g)
-    .map((part, index) =>
-      MENTION_TAGS.includes(part) ? (
-        <span
-          key={index}
-          className={`font-semibold underline decoration-2 underline-offset-2 ${
-            mine ? "text-primary-foreground" : "text-primary"
-          }`}
-        >
-          {part}
-        </span>
-      ) : (
-        <span key={index}>{part}</span>
-      ),
-    );
+  return body.split(/(@Everyone|@Admin|@Employee|@Team)/g).map((part, index) =>
+    MENTION_TAGS.includes(part) ? (
+      <span
+        key={index}
+        className={`font-semibold underline decoration-2 underline-offset-2 ${
+          mine ? "text-primary-foreground" : "text-primary"
+        }`}
+      >
+        {part}
+      </span>
+    ) : (
+      <span key={index}>{part}</span>
+    ),
+  );
 }
 
 export const Route = createFileRoute("/_authenticated/tickets/$id")({
@@ -506,14 +553,18 @@ function TicketDetail() {
     let active = true;
     void Promise.all(
       newPaths.map(async (path) => {
-        const { data } = await supabase.storage.from("ticket-attachments").createSignedUrl(path, 3600);
+        const { data } = await supabase.storage
+          .from("ticket-attachments")
+          .createSignedUrl(path, 3600);
         return [path, data?.signedUrl] as const;
       }),
     ).then((entries) => {
       if (!active) return;
       setMessageAttachmentUrls((current) => ({
         ...current,
-        ...Object.fromEntries(entries.filter((entry): entry is [string, string] => Boolean(entry[1]))),
+        ...Object.fromEntries(
+          entries.filter((entry): entry is [string, string] => Boolean(entry[1])),
+        ),
       }));
     });
     return () => {
@@ -886,7 +937,10 @@ function TicketDetail() {
   );
   const canCreateFollowUp =
     role === "employee" && ticket.user_id === me && ticket.status === "closed";
-  const mentionOptions = mentionOptionsForRole(role, requester?.full_name ?? requester?.email ?? null);
+  const mentionOptions = mentionOptionsForRole(
+    role,
+    requester?.full_name ?? requester?.email ?? null,
+  );
 
   return (
     <>
@@ -1192,63 +1246,79 @@ function TicketDetail() {
         {/* Chat: fixed in place on desktop (lg:h-full inside the fixed-height flex row
             above) — only its own message list scrolls; the left column scrolls on its own. */}
         <div className="mt-6 flex h-[480px] flex-col rounded-2xl border border-border/60 bg-surface/40 backdrop-blur lg:mt-0 lg:h-full lg:w-[40%] lg:min-w-0">
-            <div className="flex items-center justify-between border-b border-border/60 px-5 py-3">
-              <h2 className="text-sm font-semibold">Conversation</h2>
-              <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                {realtimeStatus === "live"
-                  ? "Live · realtime"
-                  : realtimeStatus === "fallback"
-                    ? "Connected · refresh mode"
-                    : "Connecting…"}
-              </span>
+          <div className="flex items-center justify-between border-b border-border/60 px-5 py-3">
+            <h2 className="text-sm font-semibold">Conversation</h2>
+            <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
+              {realtimeStatus === "live"
+                ? "Live · realtime"
+                : realtimeStatus === "fallback"
+                  ? "Connected · refresh mode"
+                  : "Connecting…"}
+            </span>
+          </div>
+          {chatError && (
+            <div className="border-b border-destructive/30 bg-destructive/10 px-5 py-2 text-xs text-destructive">
+              Chat connection error: {chatError}
             </div>
-            {chatError && (
-              <div className="border-b border-destructive/30 bg-destructive/10 px-5 py-2 text-xs text-destructive">
-                Chat connection error: {chatError}
+          )}
+          <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto scrollbar-none p-5">
+            {messages.length === 0 ? (
+              <div className="flex h-full flex-col items-center justify-center text-center text-muted-foreground">
+                <p className="text-sm">No messages yet.</p>
+                <p className="text-xs">Start the conversation with the MIS team below.</p>
               </div>
-            )}
-            <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto scrollbar-none p-5">
-              {messages.length === 0 ? (
-                <div className="flex h-full flex-col items-center justify-center text-center text-muted-foreground">
-                  <p className="text-sm">No messages yet.</p>
-                  <p className="text-xs">Start the conversation with the MIS team below.</p>
-                </div>
-              ) : (
-                messages.map((m) => {
-                  if (isStatusChangeMessage(m.body)) {
-                    return (
-                      <div key={m.id} className="flex justify-center">
+            ) : (
+              messages.map((m, index) => {
+                const messageDate = new Date(m.created_at);
+                const showDateSeparator =
+                  index === 0 || !isSameDay(messageDate, new Date(messages[index - 1].created_at));
+                const dateSeparator = showDateSeparator ? (
+                  <div className="flex items-center justify-center py-1">
+                    <span className="rounded-full border border-border/60 bg-muted/50 px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      {formatDateSeparator(messageDate)}
+                    </span>
+                  </div>
+                ) : null;
+
+                if (isStatusChangeMessage(m.body)) {
+                  return (
+                    <Fragment key={m.id}>
+                      {dateSeparator}
+                      <div className="flex justify-center">
                         <span className="rounded-full border border-border/60 bg-muted/40 px-3 py-1 text-center text-[11px] text-muted-foreground">
                           {m.body} ·{" "}
-                          {new Date(m.created_at).toLocaleTimeString([], {
+                          {messageDate.toLocaleTimeString([], {
                             hour: "2-digit",
                             minute: "2-digit",
                           })}
                         </span>
                       </div>
-                    );
-                  }
-                  const mine = m.sender_id === me;
-                  const sender = messageSenders[m.sender_id];
-                  const senderRole: AppRole =
-                    sender?.role ??
-                    (m.sender_id === ticket.user_id
-                      ? "employee"
-                      : m.sender_id === ticket.assignee_id
-                        ? "agent"
-                        : m.sender_id === me
-                          ? role
-                          : "admin");
-                  const senderName =
-                    sender?.full_name ?? sender?.email ?? (mine ? "You" : "Support user");
-                  const senderRoleLabel =
-                    senderRole === "admin"
-                      ? "MIS Head"
-                      : senderRole === "agent"
-                        ? "MIS Agent"
-                        : `${sender?.department ?? requester?.department ?? "Department"} Employee`;
-                  return (
-                    <div key={m.id} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
+                    </Fragment>
+                  );
+                }
+                const mine = m.sender_id === me;
+                const sender = messageSenders[m.sender_id];
+                const senderRole: AppRole =
+                  sender?.role ??
+                  (m.sender_id === ticket.user_id
+                    ? "employee"
+                    : m.sender_id === ticket.assignee_id
+                      ? "agent"
+                      : m.sender_id === me
+                        ? role
+                        : "admin");
+                const senderName =
+                  sender?.full_name ?? sender?.email ?? (mine ? "You" : "Support user");
+                const senderRoleLabel =
+                  senderRole === "admin"
+                    ? "MIS Head"
+                    : senderRole === "agent"
+                      ? "MIS Agent"
+                      : `${sender?.department ?? requester?.department ?? "Department"} Employee`;
+                return (
+                  <Fragment key={m.id}>
+                    {dateSeparator}
+                    <div className={`flex ${mine ? "justify-end" : "justify-start"}`}>
                       <div
                         className={`max-w-[75%] rounded-2xl px-4 py-2.5 text-sm ${
                           mine
@@ -1279,7 +1349,9 @@ function TicketDetail() {
                             {getTicketAttachments(m.attachments).map((attachment) => {
                               const url =
                                 attachment.data_url ??
-                                (attachment.path ? messageAttachmentUrls[attachment.path] : undefined);
+                                (attachment.path
+                                  ? messageAttachmentUrls[attachment.path]
+                                  : undefined);
                               const isImage = attachment.type.startsWith("image/");
                               return (
                                 <a
@@ -1316,144 +1388,145 @@ function TicketDetail() {
                             mine ? "text-primary-foreground/70" : "text-muted-foreground"
                           }`}
                         >
-                          {new Date(m.created_at).toLocaleTimeString([], {
+                          {messageDate.toLocaleTimeString([], {
                             hour: "2-digit",
                             minute: "2-digit",
                           })}
                         </p>
                       </div>
                     </div>
-                  );
-                })
-              )}
-            </div>
-            <form onSubmit={send} className="border-t border-border/60 p-3">
-              {pendingFiles.length > 0 && (
-                <div className="mb-2 flex flex-wrap gap-2">
-                  {pendingFiles.map((file, index) => (
-                    <span
-                      key={`${file.name}-${index}`}
-                      className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/40 px-2.5 py-1 text-xs"
-                    >
-                      <Paperclip className="h-3 w-3" /> {file.name}
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setPendingFiles((current) => current.filter((_, i) => i !== index))
-                        }
-                        className="text-muted-foreground hover:text-foreground"
-                        aria-label={`Remove ${file.name}`}
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </span>
-                  ))}
-                </div>
-              )}
-              <div className="flex items-end gap-2">
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  multiple
-                  hidden
-                  accept={CHAT_ATTACHMENT_TYPES.join(",")}
-                  onChange={(e) => {
-                    void handleFilesSelected(e.target.files);
-                    e.target.value = "";
-                  }}
-                />
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
+                  </Fragment>
+                );
+              })
+            )}
+          </div>
+          <form onSubmit={send} className="border-t border-border/60 p-3">
+            {pendingFiles.length > 0 && (
+              <div className="mb-2 flex flex-wrap gap-2">
+                {pendingFiles.map((file, index) => (
+                  <span
+                    key={`${file.name}-${index}`}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/40 px-2.5 py-1 text-xs"
+                  >
+                    <Paperclip className="h-3 w-3" /> {file.name}
+                    <button
                       type="button"
-                      variant="outline"
-                      size="icon"
-                      className="h-[42px] w-[42px] shrink-0"
-                      aria-label="Add emoji"
+                      onClick={() =>
+                        setPendingFiles((current) => current.filter((_, i) => i !== index))
+                      }
+                      className="text-muted-foreground hover:text-foreground"
+                      aria-label={`Remove ${file.name}`}
                     >
-                      <Smile className="h-4 w-4" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-64 p-2">
-                    <div className="grid grid-cols-8 gap-1">
-                      {QUICK_EMOJIS.map((emoji) => (
-                        <button
-                          key={emoji}
-                          type="button"
-                          onClick={() => insertAtCursor(emoji)}
-                          className="rounded p-1.5 text-lg hover:bg-muted"
-                        >
-                          {emoji}
-                        </button>
-                      ))}
-                    </div>
-                  </PopoverContent>
-                </Popover>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon"
-                      className="h-[42px] w-[42px] shrink-0"
-                      aria-label="Mention someone"
-                    >
-                      <AtSign className="h-4 w-4" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-56 p-1">
-                    {mentionOptions.map((option) => (
+                      <X className="h-3 w-3" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+            <div className="flex items-end gap-2">
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                hidden
+                accept={CHAT_ATTACHMENT_TYPES.join(",")}
+                onChange={(e) => {
+                  void handleFilesSelected(e.target.files);
+                  e.target.value = "";
+                }}
+              />
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    className="h-[42px] w-[42px] shrink-0"
+                    aria-label="Add emoji"
+                  >
+                    <Smile className="h-4 w-4" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-64 p-2">
+                  <div className="grid grid-cols-8 gap-1">
+                    {QUICK_EMOJIS.map((emoji) => (
                       <button
-                        key={option.tag}
+                        key={emoji}
                         type="button"
-                        onClick={() => insertAtCursor(`${option.tag} `)}
-                        className="flex w-full items-center justify-between gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-muted"
+                        onClick={() => insertAtCursor(emoji)}
+                        className="rounded p-1.5 text-lg hover:bg-muted"
                       >
-                        <span className="font-semibold text-primary">{option.tag}</span>
-                        <span className="truncate text-xs text-muted-foreground">{option.label}</span>
+                        {emoji}
                       </button>
                     ))}
-                  </PopoverContent>
-                </Popover>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  className="h-[42px] w-[42px] shrink-0"
-                  aria-label="Attach a file"
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  <Paperclip className="h-4 w-4" />
-                </Button>
-                <Textarea
-                  ref={textareaRef}
-                  rows={1}
-                  value={body}
-                  onChange={(e) => setBody(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault();
-                      send(e as unknown as React.FormEvent);
-                    }
-                  }}
-                  placeholder="Type a message…"
-                  className="min-h-[42px] resize-none"
-                  maxLength={1000}
-                />
-                <Button
-                  type="submit"
-                  disabled={sending || (!body.trim() && pendingFiles.length === 0)}
-                  className="h-[42px]"
-                >
-                  {sending ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Send className="h-4 w-4" />
-                  )}
-                </Button>
-              </div>
-            </form>
-          </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    className="h-[42px] w-[42px] shrink-0"
+                    aria-label="Mention someone"
+                  >
+                    <AtSign className="h-4 w-4" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-56 p-1">
+                  {mentionOptions.map((option) => (
+                    <button
+                      key={option.tag}
+                      type="button"
+                      onClick={() => insertAtCursor(`${option.tag} `)}
+                      className="flex w-full items-center justify-between gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-muted"
+                    >
+                      <span className="font-semibold text-primary">{option.tag}</span>
+                      <span className="truncate text-xs text-muted-foreground">{option.label}</span>
+                    </button>
+                  ))}
+                </PopoverContent>
+              </Popover>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="h-[42px] w-[42px] shrink-0"
+                aria-label="Attach a file"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <Paperclip className="h-4 w-4" />
+              </Button>
+              <Textarea
+                ref={textareaRef}
+                rows={1}
+                value={body}
+                onChange={(e) => setBody(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    send(e as unknown as React.FormEvent);
+                  }
+                }}
+                placeholder="Type a message…"
+                className="min-h-[42px] resize-none"
+                maxLength={1000}
+              />
+              <Button
+                type="submit"
+                disabled={sending || (!body.trim() && pendingFiles.length === 0)}
+                className="h-[42px]"
+              >
+                {sending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Send className="h-4 w-4" />
+                )}
+              </Button>
+            </div>
+          </form>
+        </div>
       </div>
     </>
   );

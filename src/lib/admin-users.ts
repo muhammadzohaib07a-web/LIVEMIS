@@ -36,6 +36,13 @@ const changeEmailSchema = z.object({
   email: z.string().trim().toLowerCase().email(),
 });
 
+const changeNameSchema = z.object({
+  userId: z.string().uuid(),
+  fullName: z.string().trim().min(2).max(100),
+});
+
+const deleteUserSchema = z.object({ userId: z.string().uuid() });
+
 export type ManagedUser = {
   id: string;
   email: string;
@@ -202,6 +209,49 @@ export const changeManagedUserEmail = createServerFn({ method: "POST" })
       .update({ email: data.email })
       .eq("id", data.userId);
     if (profileError) throw new Error(profileError.message);
+    return { success: true };
+  });
+
+export const changeManagedUserName = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator(changeNameSchema)
+  .handler(async ({ context, data }) => {
+    await assertAdmin(context.supabase, context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error: profileError } = await supabaseAdmin
+      .from("profiles")
+      .update({ full_name: data.fullName })
+      .eq("id", data.userId);
+    if (profileError) throw new Error(profileError.message);
+    const { data: authUser, error: authReadError } = await supabaseAdmin.auth.admin.getUserById(
+      data.userId,
+    );
+    if (authReadError) throw new Error(authReadError.message);
+    const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(data.userId, {
+      user_metadata: { ...(authUser.user.user_metadata ?? {}), full_name: data.fullName },
+    });
+    if (authError) throw new Error(authError.message);
+    return { success: true };
+  });
+
+export const deleteManagedUser = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator(deleteUserSchema)
+  .handler(async ({ context, data }) => {
+    await assertAdmin(context.supabase, context.userId);
+    if (data.userId === context.userId) {
+      throw new Error("You cannot delete your own account.");
+    }
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error } = await supabaseAdmin.auth.admin.deleteUser(data.userId);
+    if (error) {
+      throw new Error(
+        `Could not delete this account (${error.message}). They may have existing tickets or ` +
+          "messages that reference this profile — reassign or resolve those first.",
+      );
+    }
+    await supabaseAdmin.from("user_roles").delete().eq("user_id", data.userId);
+    await supabaseAdmin.from("profiles").delete().eq("id", data.userId);
     return { success: true };
   });
 
