@@ -19,6 +19,19 @@ function getTransporter() {
   return cachedTransporter;
 }
 
+// A plain-text alternative alongside the HTML body is a basic signal most
+// spam filters look for; HTML-only automated mail from a personal Gmail
+// account is otherwise an easy spam-folder target.
+function htmlToPlainText(html: string) {
+  return html
+    .replace(/<a\s+[^>]*href="([^"]*)"[^>]*>(.*?)<\/a>/gi, "$2 ($1)")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&middot;/g, "-")
+    .replace(/&nbsp;/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 async function sendEmail(to: string, subject: string, html: string) {
   const transporter = getTransporter();
   if (!transporter) {
@@ -31,6 +44,7 @@ async function sendEmail(to: string, subject: string, html: string) {
       to,
       subject,
       html,
+      text: htmlToPlainText(html),
     });
   } catch (error) {
     console.error(`[email-notifications] send to ${to} failed:`, error);
