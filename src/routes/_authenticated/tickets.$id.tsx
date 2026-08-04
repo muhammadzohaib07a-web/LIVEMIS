@@ -52,6 +52,7 @@ import {
   formatStatusChangeMessage,
   isStatusChangeMessage,
   MIS_STATUS_TRANSITIONS,
+  normalizedTicketStatus,
   TICKET_STATUS_LABELS,
 } from "@/lib/ticket-status";
 import { mentionOptionsForRole } from "@/lib/mentions";
@@ -992,9 +993,9 @@ function TicketDetail() {
             >
               <StatusIcon className="h-3.5 w-3.5" /> Current: {sm.label}
             </div>
-            {ticket.closed_at && (
+            {normalizedTicketStatus(ticket.status) === "closed" && (
               <p className="mt-2 text-[10px] text-muted-foreground">
-                Closed on {new Date(ticket.closed_at).toLocaleString()}
+                Closed on {new Date(ticket.closed_at ?? ticket.updated_at).toLocaleString()}
               </p>
             )}
             {canManageStatus && nextStatuses.length > 0 && (
@@ -1111,7 +1112,9 @@ function TicketDetail() {
             )}
             <p className="mt-4 text-xs text-muted-foreground">
               Opened {new Date(ticket.created_at).toLocaleString()}
-              {ticket.closed_at && <> · Closed {new Date(ticket.closed_at).toLocaleString()}</>}
+              {normalizedTicketStatus(ticket.status) === "closed" && (
+                <> · Closed {new Date(ticket.closed_at ?? ticket.updated_at).toLocaleString()}</>
+              )}
             </p>
             {isMisStaff(role) && (
               <div className="mt-4 flex flex-wrap gap-3 rounded-xl border border-border/60 bg-background/40 p-3 text-xs">

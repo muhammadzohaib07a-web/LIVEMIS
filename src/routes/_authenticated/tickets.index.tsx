@@ -349,9 +349,9 @@ function TicketsList() {
                         : isMisStaff(role)
                           ? "Unassigned · "
                           : ""}
-                      {normalizedTicketStatus(t.status) === "closed" && t.closed_at
-                        ? `Closed ${new Date(t.closed_at).toLocaleString()}`
-                        : `Updated ${new Date(t.updated_at).toLocaleString()}`}
+                      {`Opened ${new Date(t.created_at).toLocaleString()}`}
+                      {normalizedTicketStatus(t.status) === "closed" &&
+                        ` · Closed ${new Date(t.closed_at ?? t.updated_at).toLocaleString()}`}
                     </p>
                   </div>
                   <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
