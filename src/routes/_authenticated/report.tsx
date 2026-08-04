@@ -28,6 +28,7 @@ import { storePreviewTicket } from "@/lib/preview-data";
 import { analyzeIssueScreenshot, generateIssueDescription } from "@/lib/ai-description";
 import { notifyNewTicket } from "@/lib/email-notifications";
 import { getModuleFields, type TicketMetadata } from "@/lib/ticket-dynamic-fields";
+import { compressImage } from "@/lib/compress-image";
 
 type Priority = Database["public"]["Enums"]["ticket_priority"];
 type Ticket = Database["public"]["Tables"]["tickets"]["Row"];
@@ -189,14 +190,15 @@ function ReportPage() {
       event.target.value = "";
       return;
     }
-    if (file.size > 2_500_000) {
-      toast.error("Screenshot must be 2.5 MB or smaller");
-      event.target.value = "";
-      return;
-    }
     try {
-      const dataUrl = await readFileAsDataUrl(file);
-      setScreenshot({ file, dataUrl });
+      const compressed = await compressImage(file);
+      if (compressed.size > 2_500_000) {
+        toast.error("Screenshot must be 2.5 MB or smaller");
+        event.target.value = "";
+        return;
+      }
+      const dataUrl = await readFileAsDataUrl(compressed);
+      setScreenshot({ file: compressed, dataUrl });
       await analyzeScreenshot(dataUrl);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not read screenshot");
