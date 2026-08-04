@@ -1,27 +1,39 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import nodemailer from "nodemailer";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 const APP_URL = process.env.APP_URL ?? "https://livemis-utxn.vercel.app";
 
+let cachedTransporter: ReturnType<typeof nodemailer.createTransport> | null = null;
+
+function getTransporter() {
+  if (cachedTransporter) return cachedTransporter;
+  const user = process.env.GMAIL_USER;
+  const pass = process.env.GMAIL_APP_PASSWORD;
+  if (!user || !pass) return null;
+  cachedTransporter = nodemailer.createTransport({
+    service: "gmail",
+    auth: { user, pass },
+  });
+  return cachedTransporter;
+}
+
 async function sendEmail(to: string, subject: string, html: string) {
-  const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) {
-    console.error("[email-notifications] RESEND_API_KEY is not configured; email skipped.");
+  const transporter = getTransporter();
+  if (!transporter) {
+    console.error("[email-notifications] GMAIL_USER/GMAIL_APP_PASSWORD not configured; email skipped.");
     return;
   }
-  const from = process.env.EMAIL_FROM ?? "MIS Support Hub <onboarding@resend.dev>";
-  const response = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ from, to, subject, html }),
-  });
-  if (!response.ok) {
-    const body = await response.text().catch(() => "");
-    console.error(`[email-notifications] send to ${to} failed (${response.status}): ${body}`);
+  try {
+    await transporter.sendMail({
+      from: `"MIS Support Hub" <${process.env.GMAIL_USER}>`,
+      to,
+      subject,
+      html,
+    });
+  } catch (error) {
+    console.error(`[email-notifications] send to ${to} failed:`, error);
   }
 }
 
