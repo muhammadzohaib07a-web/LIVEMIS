@@ -49,7 +49,9 @@ import {
 } from "@/lib/preview-data";
 import { getCategoryLabel } from "@/lib/ticket-categories";
 import {
+  formatAssignmentMessage,
   formatStatusChangeMessage,
+  isAssignmentMessage,
   isStatusChangeMessage,
   MIS_STATUS_TRANSITIONS,
   normalizedTicketStatus,
@@ -852,6 +854,17 @@ function TicketDetail() {
       }
       if (ticket?.assignee_id !== assigneeId) {
         const assignee = previewAgents.find((agent) => agent.id === assigneeId);
+        const assignMessage: Message = {
+          id: `preview-assign-${Date.now()}`,
+          ticket_id: id,
+          sender_id: me ?? ticket?.user_id ?? "preview-employee",
+          body: formatAssignmentMessage(assignee?.full_name ?? assignee?.email ?? "an MIS agent"),
+          attachments: [],
+          created_at: new Date().toISOString(),
+        };
+        setMessages((current) => [...current, assignMessage]);
+        storePreviewMessage(assignMessage);
+        previewChannelRef.current?.postMessage(assignMessage);
         const notification: Database["public"]["Tables"]["notifications"]["Row"] = {
           id: crypto.randomUUID(),
           user_id: assigneeId,
@@ -889,6 +902,19 @@ function TicketDetail() {
           }
         : current,
     );
+    if (wasReassigned && me) {
+      const assignee = agents.find((agent) => agent.id === assigneeId);
+      const { data: assignMessage } = await supabase
+        .from("ticket_messages")
+        .insert({
+          ticket_id: id,
+          sender_id: me,
+          body: formatAssignmentMessage(assignee?.full_name ?? assignee?.email ?? "an MIS agent"),
+        })
+        .select()
+        .single();
+      if (assignMessage) setMessages((current) => [...current, assignMessage]);
+    }
     if (wasReassigned) {
       void notifyTicketAssigned({ data: { ticketId: id, assigneeId } }).catch((notifyError) =>
         console.error("Failed to send ticket-assigned email", notifyError),
@@ -1291,12 +1317,19 @@ function TicketDetail() {
                   </div>
                 ) : null;
 
-                if (isStatusChangeMessage(m.body)) {
+                if (isStatusChangeMessage(m.body) || isAssignmentMessage(m.body)) {
                   return (
                     <Fragment key={m.id}>
                       {dateSeparator}
                       <div className="flex justify-center">
-                        <span className="rounded-full border border-border/60 bg-muted/40 px-3 py-1 text-center text-[11px] text-muted-foreground">
+                        <span
+                          key={m.body}
+                          className={`animate-status-pop rounded-full border px-3 py-1 text-center text-[11px] ${
+                            isAssignmentMessage(m.body)
+                              ? "border-primary/30 bg-primary/10 text-primary"
+                              : "border-border/60 bg-muted/40 text-muted-foreground"
+                          }`}
+                        >
                           {m.body} ·{" "}
                           {messageDate.toLocaleTimeString([], {
                             hour: "2-digit",

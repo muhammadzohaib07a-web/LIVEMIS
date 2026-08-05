@@ -45,3 +45,13 @@ export function isStatusChangeMessage(body: string): boolean {
 export function formatStatusChangeMessage(from: TicketStatus, to: TicketStatus): string {
   return `${STATUS_CHANGE_MESSAGE_PREFIX} from ${TICKET_STATUS_LABELS[from]} to ${TICKET_STATUS_LABELS[to]}`;
 }
+
+export const ASSIGNMENT_MESSAGE_PREFIX = "📋 Assigned to";
+
+export function isAssignmentMessage(body: string): boolean {
+  return body.startsWith(ASSIGNMENT_MESSAGE_PREFIX);
+}
+
+export function formatAssignmentMessage(agentName: string): string {
+  return `${ASSIGNMENT_MESSAGE_PREFIX} ${agentName}`;
+}
