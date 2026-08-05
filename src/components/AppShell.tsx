@@ -248,7 +248,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </header>
         <main
           className={
-            /^\/tickets\/[^/]+$/.test(pathname)
+            /^\/tickets\/[^/]+$/.test(pathname) || pathname === "/assistant"
               ? "mx-auto max-w-none px-4 py-4 sm:px-6 sm:py-5"
               : usesFullWidthLayout(pathname)
                 ? "mx-auto max-w-none px-4 py-8 sm:px-6 sm:py-10"

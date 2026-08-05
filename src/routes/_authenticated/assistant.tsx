@@ -205,7 +205,7 @@ function AssistantPage() {
   const lastAssistantMessage = [...messages].reverse().find((m) => m.role === "assistant");
 
   return (
-    <div className="mx-auto flex h-[calc(100vh-8.5rem)] max-w-3xl flex-col">
+    <div className="mx-auto flex h-[calc(100vh-11rem)] max-w-4xl flex-col">
       <div className="mb-4">
         <p className="text-sm text-muted-foreground">Talk it through before opening a ticket</p>
         <h1 className="text-3xl font-black tracking-tight sm:text-4xl">
