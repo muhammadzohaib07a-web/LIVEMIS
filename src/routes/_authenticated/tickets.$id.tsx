@@ -960,7 +960,8 @@ function TicketDetail() {
           {role === "admin" && (
             <div
               key={ticket.assignee_id ?? "unassigned"}
-              className="animate-status-pop rounded-2xl border border-primary/30 bg-primary/5 p-5 text-primary"
+              className="animate-status-pop rounded-2xl border border-primary/30 bg-primary/5 p-5"
+              style={{ "--pop-glow": "var(--color-primary)" } as React.CSSProperties}
             >
               <h3 className="flex items-center gap-2 text-sm font-semibold">
                 <UserCheck className="h-4 w-4" /> MIS Head Assignment
