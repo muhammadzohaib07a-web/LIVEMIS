@@ -64,27 +64,56 @@ export const Route = createFileRoute("/_authenticated/report_/wizard")({
   component: ReportWizard,
 });
 
-// Grounded in this company's real Odoo usage (sales/purchase orders, the
-// custom Cutting -> Embroidery -> Stitching -> Packing production flow,
-// quality checks, inventory) instead of generic terms, but kept in plain
-// language a non-technical factory employee would say themselves.
-const DOING_CHIPS = [
-  "Creating a new sales order",
-  "Creating or approving a purchase order",
-  "Starting a new production order",
-  "Checking if material is available for production",
-  "Recording a quality check (pass or fail)",
-  "Moving material between stages (Cutting, Embroidery, Stitching, Packing)",
-  "Marking a production order as complete",
-  "Printing a document (invoice, label, delivery note)",
-  "Checking stock or inventory",
-  "Logging into Odoo",
+// What the employee was likely doing, chosen from the module/screen they
+// picked in the previous step — grounded in this company's real Odoo usage,
+// in plain language a non-technical factory employee would say themselves.
+// Falls back to a general list for screens without a specific mapping.
+const DOING_SUGGESTIONS: Record<string, string[]> = {
+  Sales: [
+    "Creating a new sales order",
+    "Sending a quotation to a customer",
+    "Confirming an order",
+    "Checking an existing order",
+  ],
+  CRM: ["Creating a new lead", "Updating a lead or opportunity", "Moving a lead to the next stage"],
+  Purchase: [
+    "Creating a purchase order",
+    "Approving a purchase order",
+    "Sending an RFQ to a vendor",
+  ],
+  Inventory: ["Checking stock levels", "Doing a stock transfer", "Checking a delivery or receipt"],
+  Manufacturing: [
+    "Starting a new production order",
+    "Checking if material is available for production",
+    "Marking a production order as complete",
+    "Moving material between stages (Cutting, Embroidery, Stitching, Packing)",
+  ],
+  Quality: ["Recording a quality check (pass or fail)", "Reviewing quality check results"],
+  Accounting: ["Creating or checking an invoice", "Recording a payment", "Checking a report"],
+  "Point of Sale": ["Processing a sale", "Closing a POS session", "Checking a receipt"],
+  Barcode: ["Scanning a barcode", "Checking a scanned item"],
+  Contacts: ["Adding a new contact", "Updating contact information"],
+  Documents: ["Uploading a document", "Finding a document"],
+  "Gate Pass": ["Creating a gate pass", "Checking a gate pass"],
+  Attendances: ["Checking in or out", "Checking an attendance record"],
+  Expenses: ["Submitting an expense", "Checking expense status"],
+  Maintenance: ["Reporting a maintenance issue", "Checking the maintenance schedule"],
+  Repairs: ["Logging a repair", "Checking repair status"],
+  Printer: ["Printing a document (invoice, label, delivery note)"],
+  "Internet / Wi-Fi": ["Trying to connect to the internet"],
+  "Machine on the floor": ["Operating a machine"],
+};
+
+const DEFAULT_DOING_SUGGESTIONS = [
   "Entering or saving data in a form",
-  "Sending an order or quotation to a customer or vendor",
   "Checking a report or dashboard",
+  "Logging into Odoo",
   "Attaching or uploading a file",
-  "Scanning a barcode",
 ];
+
+function getDoingSuggestions(where: string): string[] {
+  return DOING_SUGGESTIONS[where] ?? DEFAULT_DOING_SUGGESTIONS;
+}
 
 // Exact Odoo app/module names installed on this company's instance, so an
 // employee can point straight at the screen they were in instead of a
@@ -485,7 +514,7 @@ function ReportWizard() {
                 maxLength={500}
               />
               <div className="flex flex-wrap gap-2">
-                {DOING_CHIPS.map((chip) => (
+                {getDoingSuggestions(whereWereYouWorking).map((chip) => (
                   <button
                     key={chip}
                     type="button"
