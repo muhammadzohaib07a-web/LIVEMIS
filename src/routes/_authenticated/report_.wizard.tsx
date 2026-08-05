@@ -74,34 +74,80 @@ const DOING_SUGGESTIONS: Record<string, string[]> = {
     "Sending a quotation to a customer",
     "Confirming an order",
     "Checking an existing order",
+    "Editing order quantity or price",
+    "Cancelling an order",
   ],
-  CRM: ["Creating a new lead", "Updating a lead or opportunity", "Moving a lead to the next stage"],
+  CRM: [
+    "Creating a new lead",
+    "Updating a lead or opportunity",
+    "Moving a lead to the next stage",
+    "Scheduling a follow-up call",
+    "Converting a lead to a customer",
+  ],
   Purchase: [
     "Creating a purchase order",
     "Approving a purchase order",
     "Sending an RFQ to a vendor",
+    "Receiving goods against a purchase order",
+    "Checking vendor pricing",
   ],
-  Inventory: ["Checking stock levels", "Doing a stock transfer", "Checking a delivery or receipt"],
+  Inventory: [
+    "Checking stock levels",
+    "Doing a stock transfer",
+    "Checking a delivery or receipt",
+    "Adjusting a stock quantity",
+    "Checking where a product is stored",
+  ],
   Manufacturing: [
     "Starting a new production order",
     "Checking if material is available for production",
     "Marking a production order as complete",
     "Moving material between stages (Cutting, Embroidery, Stitching, Packing)",
+    "Checking a bill of materials",
+    "Planning a production order",
   ],
-  Quality: ["Recording a quality check (pass or fail)", "Reviewing quality check results"],
-  Accounting: ["Creating or checking an invoice", "Recording a payment", "Checking a report"],
-  "Point of Sale": ["Processing a sale", "Closing a POS session", "Checking a receipt"],
-  Barcode: ["Scanning a barcode", "Checking a scanned item"],
-  Contacts: ["Adding a new contact", "Updating contact information"],
-  Documents: ["Uploading a document", "Finding a document"],
-  "Gate Pass": ["Creating a gate pass", "Checking a gate pass"],
-  Attendances: ["Checking in or out", "Checking an attendance record"],
-  Expenses: ["Submitting an expense", "Checking expense status"],
-  Maintenance: ["Reporting a maintenance issue", "Checking the maintenance schedule"],
-  Repairs: ["Logging a repair", "Checking repair status"],
-  Printer: ["Printing a document (invoice, label, delivery note)"],
-  "Internet / Wi-Fi": ["Trying to connect to the internet"],
-  "Machine on the floor": ["Operating a machine"],
+  Quality: [
+    "Recording a quality check (pass or fail)",
+    "Reviewing quality check results",
+    "Recording a rework quantity",
+    "Checking why production is blocked",
+  ],
+  Accounting: [
+    "Creating or checking an invoice",
+    "Recording a payment",
+    "Checking a report",
+    "Posting a journal entry",
+    "Checking a customer's balance",
+  ],
+  "Point of Sale": [
+    "Processing a sale",
+    "Closing a POS session",
+    "Checking a receipt",
+    "Applying a discount",
+    "Opening the register",
+  ],
+  Barcode: ["Scanning a barcode", "Checking a scanned item", "Scanning for a stock count"],
+  Contacts: ["Adding a new contact", "Updating contact information", "Searching for a contact"],
+  Documents: ["Uploading a document", "Finding a document", "Sharing a document"],
+  "Gate Pass": ["Creating a gate pass", "Checking a gate pass", "Approving a gate pass"],
+  Attendances: ["Checking in or out", "Checking an attendance record", "Requesting leave"],
+  Expenses: ["Submitting an expense", "Checking expense status", "Approving an expense"],
+  Maintenance: [
+    "Reporting a maintenance issue",
+    "Checking the maintenance schedule",
+    "Closing a maintenance request",
+  ],
+  Repairs: ["Logging a repair", "Checking repair status", "Updating repair details"],
+  Printer: [
+    "Printing a document (invoice, label, delivery note)",
+    "Checking printer status or paper/ink",
+  ],
+  "Internet / Wi-Fi": ["Trying to connect to the internet", "Checking Wi-Fi signal"],
+  "Machine on the floor": [
+    "Operating a machine",
+    "Starting up a machine",
+    "Checking a machine's status",
+  ],
 };
 
 const DEFAULT_DOING_SUGGESTIONS = [
@@ -109,6 +155,7 @@ const DEFAULT_DOING_SUGGESTIONS = [
   "Checking a report or dashboard",
   "Logging into Odoo",
   "Attaching or uploading a file",
+  "Searching for something",
 ];
 
 function getDoingSuggestions(where: string): string[] {
@@ -166,54 +213,81 @@ const WHAT_HAPPENED_SUGGESTIONS: Record<string, string[]> = {
     "The price or quantity shown is wrong",
     "I can't find the customer",
     "The order is stuck and won't move forward",
+    "The customer never received the quotation",
+    "It won't let me edit the order",
   ],
   CRM: [
     "The lead/opportunity is missing or duplicated",
     "I can't move it to the next stage",
     "The information saved is wrong",
+    "It won't let me schedule a follow-up",
+    "The lead didn't convert to a customer",
   ],
   Purchase: [
     "I can't approve the order",
     "I got an error message when confirming",
     "The vendor or price is wrong",
+    "It's stuck waiting for approval",
+    "The goods received don't match the order",
   ],
   Inventory: [
     "The stock quantity shown is wrong",
     "I can't complete the transfer",
     "The transfer is stuck or not showing",
+    "The stock count doesn't match what's on the shelf",
+    "I can't find where the product is stored",
   ],
   Manufacturing: [
     "I can't start the production order",
     "It says material is not available",
     "The quality check is blocking me from starting",
     "The stage transfer (Cutting/Embroidery/Stitching/Packing) is missing",
+    "The bill of materials looks wrong",
+    "It won't let me mark it as complete",
   ],
   Quality: [
     "I can't create or pass the quality check",
     "It shows the wrong quantity",
     "It's blocking production for no reason",
+    "The rework quantity isn't saving",
   ],
   Accounting: [
     "The invoice amount is wrong",
     "I can't post or confirm the invoice",
     "A payment isn't showing",
+    "The customer balance looks wrong",
+    "The journal entry won't save",
   ],
   "Point of Sale": [
     "The sale won't complete",
     "The wrong price or item is showing",
     "The session won't close",
+    "The discount isn't applying",
+    "The register won't open",
   ],
-  Barcode: ["The scanner isn't reading the barcode", "It's scanning the wrong item"],
+  Barcode: [
+    "The scanner isn't reading the barcode",
+    "It's scanning the wrong item",
+    "Nothing happens when I scan",
+  ],
   Printer: [
     "Nothing prints",
     "It prints blank or wrong pages",
     "It shows an offline or error message",
+    "The printout is missing information",
+    "It printed the wrong document",
   ],
-  "Internet / Wi-Fi": ["The connection keeps dropping", "The page won't load at all", "It's very slow"],
+  "Internet / Wi-Fi": [
+    "The connection keeps dropping",
+    "The page won't load at all",
+    "It's very slow",
+    "It connects but nothing works",
+  ],
   "Machine on the floor": [
     "The machine won't turn on",
     "It's making an unusual noise",
     "It stopped mid-way through a job",
+    "It's producing bad output",
   ],
 };
 
@@ -222,10 +296,69 @@ const DEFAULT_WHAT_HAPPENED_SUGGESTIONS = [
   "It froze or stopped responding",
   "Nothing happened when I tried",
   "The information shown is wrong",
+  "It's much slower than usual",
 ];
 
-function getWhatHappenedSuggestions(where: string): string[] {
-  return WHAT_HAPPENED_SUGGESTIONS[where] ?? DEFAULT_WHAT_HAPPENED_SUGGESTIONS;
+// Extra "what happened" suggestions pulled in from keywords in the "what
+// were you doing" answer, so this step reflects both previous answers
+// instead of only the module picked.
+const DOING_KEYWORD_HAPPENED_HINTS: { keywords: string[]; suggestions: string[] }[] = [
+  {
+    keywords: ["quotation", "sales order", "confirming an order", "customer"],
+    suggestions: ["The customer never received it", "It won't let me confirm the order"],
+  },
+  {
+    keywords: ["purchase", "rfq", "vendor", "approving"],
+    suggestions: ["It's stuck waiting for approval", "The vendor details are wrong"],
+  },
+  {
+    keywords: ["quality check", "quality"],
+    suggestions: ["The quality check keeps failing", "I can't submit the quality check"],
+  },
+  {
+    keywords: ["stage", "transfer", "cutting", "embroidery", "stitching", "packing"],
+    suggestions: [
+      "The stage transfer isn't showing as complete",
+      "Material isn't moving to the next stage",
+    ],
+  },
+  {
+    keywords: ["production order", "material", "bill of materials"],
+    suggestions: [
+      "It says the production order is not ready",
+      "The bill of materials looks wrong",
+    ],
+  },
+  {
+    keywords: ["stock", "transfer", "delivery", "receipt"],
+    suggestions: ["The stock count doesn't match", "The transfer won't validate"],
+  },
+  {
+    keywords: ["invoice", "payment", "journal"],
+    suggestions: ["The invoice total is wrong", "The payment isn't linked to the invoice"],
+  },
+  {
+    keywords: ["print"],
+    suggestions: ["The printout is missing information", "It printed the wrong document"],
+  },
+  {
+    keywords: ["barcode", "scan"],
+    suggestions: ["The barcode won't scan at all", "It keeps scanning the wrong product"],
+  },
+  {
+    keywords: ["log in", "login", "password"],
+    suggestions: ["It says my password is wrong", "It won't let me in at all"],
+  },
+];
+
+function getWhatHappenedSuggestions(where: string, doing: string): string[] {
+  const base = WHAT_HAPPENED_SUGGESTIONS[where] ?? DEFAULT_WHAT_HAPPENED_SUGGESTIONS;
+  const lowerDoing = doing.toLowerCase();
+  const hints = DOING_KEYWORD_HAPPENED_HINTS.filter((entry) =>
+    entry.keywords.some((keyword) => lowerDoing.includes(keyword)),
+  ).flatMap((entry) => entry.suggestions);
+  const extra = hints.filter((hint) => !base.includes(hint));
+  return [...base, ...extra];
 }
 
 function ReportWizard() {
@@ -547,7 +680,7 @@ function ReportWizard() {
                 maxLength={1000}
               />
               <div className="flex flex-wrap gap-2">
-                {getWhatHappenedSuggestions(whereWereYouWorking).map((chip) => (
+                {getWhatHappenedSuggestions(whereWereYouWorking, whatWereYouDoing).map((chip) => (
                   <button
                     key={chip}
                     type="button"
