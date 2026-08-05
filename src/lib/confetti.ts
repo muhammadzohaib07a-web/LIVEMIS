@@ -1,8 +1,10 @@
-// Lightweight canvas confetti burst using the app's own theme colors (reads
-// the live --primary/--accent/--success CSS variables), so it always stays
-// on-brand across light/dark/green themes instead of using stock rainbow
-// colors. No dependency — a short-lived fixed canvas that removes itself.
-export function burstConfetti() {
+// Full-page confetti "rain" using the app's own theme colors (reads the
+// live --primary/--accent/--success CSS variables), so it always stays
+// on-brand across light/dark/green themes instead of stock rainbow colors.
+// No dependency — a fixed canvas that spawns particles across the full
+// width for `durationMs`, then removes itself once everything has fallen
+// off-screen.
+export function burstConfetti(durationMs = 5000) {
   if (typeof document === "undefined") return;
 
   const canvas = document.createElement("canvas");
@@ -36,40 +38,54 @@ export function burstConfetti() {
     rotationSpeed: number;
   };
 
-  const particles: Particle[] = Array.from({ length: 70 }, () => ({
-    x: canvas.width / 2 + (Math.random() - 0.5) * 140,
-    y: canvas.height * 0.28 + (Math.random() - 0.5) * 40,
-    vx: (Math.random() - 0.5) * 9,
-    vy: Math.random() * -7 - 4,
-    size: Math.random() * 6 + 4,
-    color: palette[Math.floor(Math.random() * palette.length)],
-    rotation: Math.random() * 360,
-    rotationSpeed: (Math.random() - 0.5) * 14,
-  }));
+  const particles: Particle[] = [];
 
-  const gravity = 0.25;
-  const maxFrames = 110;
-  let frame = 0;
+  function spawnBatch() {
+    for (let i = 0; i < 6; i++) {
+      particles.push({
+        x: Math.random() * canvas.width,
+        y: -20,
+        vx: (Math.random() - 0.5) * 4,
+        vy: Math.random() * 2 + 2,
+        size: Math.random() * 7 + 5,
+        color: palette[Math.floor(Math.random() * palette.length)],
+        rotation: Math.random() * 360,
+        rotationSpeed: (Math.random() - 0.5) * 12,
+      });
+    }
+  }
 
-  function tick() {
+  const gravity = 0.12;
+  const spawnIntervalMs = 40;
+  const startTime = performance.now();
+  let lastSpawn = 0;
+
+  function tick(now: number) {
     if (!ctx) return;
-    frame += 1;
+    const elapsed = now - startTime;
+    if (elapsed < durationMs && now - lastSpawn > spawnIntervalMs) {
+      lastSpawn = now;
+      spawnBatch();
+    }
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    const life = Math.max(0, 1 - frame / maxFrames);
-    for (const p of particles) {
+    for (let i = particles.length - 1; i >= 0; i--) {
+      const p = particles[i];
       p.vy += gravity;
       p.x += p.vx;
       p.y += p.vy;
       p.rotation += p.rotationSpeed;
+      if (p.y > canvas.height + 30) {
+        particles.splice(i, 1);
+        continue;
+      }
       ctx.save();
       ctx.translate(p.x, p.y);
       ctx.rotate((p.rotation * Math.PI) / 180);
-      ctx.globalAlpha = life;
       ctx.fillStyle = p.color;
       ctx.fillRect(-p.size / 2, -p.size / 4, p.size, p.size / 2);
       ctx.restore();
     }
-    if (frame < maxFrames) {
+    if (elapsed < durationMs || particles.length > 0) {
       requestAnimationFrame(tick);
     } else {
       canvas.remove();
