@@ -379,15 +379,17 @@ function Dashboard() {
     canceled: "var(--destructive)",
   };
 
-  const recent = filtered.slice(0, 5);
+  const isFiltering = Boolean(activeStatus || activeCategory);
+  const recent = isFiltering ? filtered : filtered.slice(0, 5);
   const scopeLabel =
     role === "admin"
       ? "All department requests"
       : role === "agent"
         ? "Tickets assigned to you"
         : "Your submitted requests";
-  const recentTitle =
-    role === "admin"
+  const recentTitle = isFiltering
+    ? `${filtered.length} matching ticket${filtered.length === 1 ? "" : "s"}`
+    : role === "admin"
       ? "Recent MIS queue tickets"
       : role === "agent"
         ? "Recently assigned tickets"
