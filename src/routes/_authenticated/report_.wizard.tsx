@@ -125,8 +125,79 @@ const WHERE_CHIPS = [
   "Internet / Wi-Fi",
 ];
 
-// Q0 what were you doing, Q1 where, Q2 what happened, Q3 impact, Q4 photo, Q5 review
+// Q0 where, Q1 what were you doing, Q2 what happened, Q3 impact, Q4 photo, Q5 review
 const TOTAL_STEPS = 6;
+
+// Common "what happened" phrasing for each module/screen the employee said
+// they were working in, grounded in this company's real Odoo behavior.
+// Falls back to a generic set for screens without a specific list.
+const WHAT_HAPPENED_SUGGESTIONS: Record<string, string[]> = {
+  Sales: [
+    "I got an error message when confirming the order",
+    "The price or quantity shown is wrong",
+    "I can't find the customer",
+    "The order is stuck and won't move forward",
+  ],
+  CRM: [
+    "The lead/opportunity is missing or duplicated",
+    "I can't move it to the next stage",
+    "The information saved is wrong",
+  ],
+  Purchase: [
+    "I can't approve the order",
+    "I got an error message when confirming",
+    "The vendor or price is wrong",
+  ],
+  Inventory: [
+    "The stock quantity shown is wrong",
+    "I can't complete the transfer",
+    "The transfer is stuck or not showing",
+  ],
+  Manufacturing: [
+    "I can't start the production order",
+    "It says material is not available",
+    "The quality check is blocking me from starting",
+    "The stage transfer (Cutting/Embroidery/Stitching/Packing) is missing",
+  ],
+  Quality: [
+    "I can't create or pass the quality check",
+    "It shows the wrong quantity",
+    "It's blocking production for no reason",
+  ],
+  Accounting: [
+    "The invoice amount is wrong",
+    "I can't post or confirm the invoice",
+    "A payment isn't showing",
+  ],
+  "Point of Sale": [
+    "The sale won't complete",
+    "The wrong price or item is showing",
+    "The session won't close",
+  ],
+  Barcode: ["The scanner isn't reading the barcode", "It's scanning the wrong item"],
+  Printer: [
+    "Nothing prints",
+    "It prints blank or wrong pages",
+    "It shows an offline or error message",
+  ],
+  "Internet / Wi-Fi": ["The connection keeps dropping", "The page won't load at all", "It's very slow"],
+  "Machine on the floor": [
+    "The machine won't turn on",
+    "It's making an unusual noise",
+    "It stopped mid-way through a job",
+  ],
+};
+
+const DEFAULT_WHAT_HAPPENED_SUGGESTIONS = [
+  "I got an error message on the screen",
+  "It froze or stopped responding",
+  "Nothing happened when I tried",
+  "The information shown is wrong",
+];
+
+function getWhatHappenedSuggestions(where: string): string[] {
+  return WHAT_HAPPENED_SUGGESTIONS[where] ?? DEFAULT_WHAT_HAPPENED_SUGGESTIONS;
+}
 
 function ReportWizard() {
   const navigate = useNavigate();
@@ -156,9 +227,9 @@ function ReportWizard() {
 
   const canProceed =
     step === 0
-      ? whatWereYouDoing.trim().length > 0
+      ? whereWereYouWorking.trim().length > 0
       : step === 1
-        ? whereWereYouWorking.trim().length > 0
+        ? whatWereYouDoing.trim().length > 0
         : step === 2
           ? whatHappened.trim().length > 0
           : step === 3
@@ -374,35 +445,6 @@ function ReportWizard() {
             <div className="space-y-4">
               <div className="flex items-start gap-2">
                 <MessageCircleQuestion className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
-                <h2 className="text-lg font-bold">What were you trying to do?</h2>
-              </div>
-              <Textarea
-                autoFocus
-                rows={3}
-                placeholder="Example: I was trying to save a new customer order"
-                value={whatWereYouDoing}
-                onChange={(e) => setWhatWereYouDoing(e.target.value)}
-                maxLength={500}
-              />
-              <div className="flex flex-wrap gap-2">
-                {DOING_CHIPS.map((chip) => (
-                  <button
-                    key={chip}
-                    type="button"
-                    onClick={() => setWhatWereYouDoing(chip)}
-                    className="rounded-full border border-border bg-background/60 px-3 py-1.5 text-xs text-muted-foreground transition hover:border-primary/50 hover:text-foreground"
-                  >
-                    {chip}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {step === 1 && (
-            <div className="space-y-4">
-              <div className="flex items-start gap-2">
-                <MessageCircleQuestion className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
                 <h2 className="text-lg font-bold">Where were you working?</h2>
               </div>
               <Textarea
@@ -419,6 +461,35 @@ function ReportWizard() {
                     key={chip}
                     type="button"
                     onClick={() => setWhereWereYouWorking(chip)}
+                    className="rounded-full border border-border bg-background/60 px-3 py-1.5 text-xs text-muted-foreground transition hover:border-primary/50 hover:text-foreground"
+                  >
+                    {chip}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {step === 1 && (
+            <div className="space-y-4">
+              <div className="flex items-start gap-2">
+                <MessageCircleQuestion className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+                <h2 className="text-lg font-bold">What were you trying to do?</h2>
+              </div>
+              <Textarea
+                autoFocus
+                rows={3}
+                placeholder="Example: I was trying to save a new customer order"
+                value={whatWereYouDoing}
+                onChange={(e) => setWhatWereYouDoing(e.target.value)}
+                maxLength={500}
+              />
+              <div className="flex flex-wrap gap-2">
+                {DOING_CHIPS.map((chip) => (
+                  <button
+                    key={chip}
+                    type="button"
+                    onClick={() => setWhatWereYouDoing(chip)}
                     className="rounded-full border border-border bg-background/60 px-3 py-1.5 text-xs text-muted-foreground transition hover:border-primary/50 hover:text-foreground"
                   >
                     {chip}
@@ -446,6 +517,18 @@ function ReportWizard() {
                 onChange={(e) => setWhatHappened(e.target.value)}
                 maxLength={1000}
               />
+              <div className="flex flex-wrap gap-2">
+                {getWhatHappenedSuggestions(whereWereYouWorking).map((chip) => (
+                  <button
+                    key={chip}
+                    type="button"
+                    onClick={() => setWhatHappened(chip)}
+                    className="rounded-full border border-border bg-background/60 px-3 py-1.5 text-xs text-muted-foreground transition hover:border-primary/50 hover:text-foreground"
+                  >
+                    {chip}
+                  </button>
+                ))}
+              </div>
             </div>
           )}
 
