@@ -59,6 +59,7 @@ import { mentionOptionsForRole } from "@/lib/mentions";
 import { notifyTicketAssigned } from "@/lib/email-notifications";
 import { METADATA_FIELD_LABELS } from "@/lib/ticket-dynamic-fields";
 import { APP_TITLE } from "@/lib/app-meta";
+import { burstConfetti } from "@/lib/confetti";
 import { compressImage } from "@/lib/compress-image";
 
 const QUICK_EMOJIS = [
@@ -741,12 +742,14 @@ function TicketDetail() {
         storePreviewMessage(statusMessage);
         previewChannelRef.current?.postMessage(statusMessage);
       }
+      if (s === "closed" || s === "resolved") burstConfetti();
       toast.success(`Marked ${statusMeta[s].label}`);
       return;
     }
     const { error } = await supabase.from("tickets").update({ status: s }).eq("id", id);
     if (error) return toast.error(error.message);
     setTicket((t) => (t ? { ...t, status: s } : t));
+    if (s === "closed" || s === "resolved") burstConfetti();
     toast.success(`Marked ${statusMeta[s].label}`);
   };
 
