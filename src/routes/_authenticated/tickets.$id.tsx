@@ -958,7 +958,10 @@ function TicketDetail() {
       <div className="gap-6 lg:flex lg:h-[calc(100vh-9.5rem)]">
         <div className="space-y-6 scrollbar-none lg:w-[60%] lg:min-w-0 lg:overflow-y-auto lg:pr-1">
           {role === "admin" && (
-            <div className="rounded-2xl border border-primary/30 bg-primary/5 p-5">
+            <div
+              key={ticket.assignee_id ?? "unassigned"}
+              className="animate-status-pop rounded-2xl border border-primary/30 bg-primary/5 p-5 text-primary"
+            >
               <h3 className="flex items-center gap-2 text-sm font-semibold">
                 <UserCheck className="h-4 w-4" /> MIS Head Assignment
               </h3>
@@ -992,7 +995,8 @@ function TicketDetail() {
               Open → In Progress → Answered → Awaiting Customer Feedback → Closed
             </p>
             <div
-              className={`mt-3 inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-semibold ${sm.cls}`}
+              key={ticket.status}
+              className={`mt-3 inline-flex animate-status-pop items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-semibold ${sm.cls}`}
             >
               <StatusIcon className="h-3.5 w-3.5" /> Current: {sm.label}
             </div>
