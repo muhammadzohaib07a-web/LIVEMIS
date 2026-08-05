@@ -983,32 +983,6 @@ function TicketDetail() {
 
       <div className="gap-6 lg:flex lg:h-[calc(100vh-9.5rem)]">
         <div className="space-y-6 scrollbar-none lg:w-[60%] lg:min-w-0 lg:overflow-y-auto lg:pr-1">
-          {role === "admin" && (
-            <div
-              key={ticket.assignee_id ?? "unassigned"}
-              className="animate-status-pop rounded-2xl border border-primary/30 bg-primary/5 p-5"
-              style={{ "--pop-glow": "var(--color-primary)" } as React.CSSProperties}
-            >
-              <h3 className="flex items-center gap-2 text-sm font-semibold">
-                <UserCheck className="h-4 w-4" /> MIS Head Assignment
-              </h3>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Select the MIS agent responsible for this issue.
-              </p>
-              <Select value={ticket.assignee_id ?? undefined} onValueChange={assignTicket}>
-                <SelectTrigger className="mt-3">
-                  <SelectValue placeholder="Assign an MIS agent" />
-                </SelectTrigger>
-                <SelectContent>
-                  {agents.map((agent) => (
-                    <SelectItem key={agent.id} value={agent.id}>
-                      {agent.full_name ?? agent.email ?? "MIS Agent"} ({agent.assigned_count})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
           <div className="rounded-2xl border border-border/60 bg-surface/40 p-5 backdrop-blur">
             <h3 className="text-sm font-semibold">Status</h3>
             <p className="mt-1 text-xs text-muted-foreground">
@@ -1258,6 +1232,33 @@ function TicketDetail() {
                   <RotateCcw className="mr-2 h-4 w-4" /> Create Follow-up
                 </Button>
               )}
+            </div>
+          )}
+
+          {role === "admin" && (
+            <div
+              key={ticket.assignee_id ?? "unassigned"}
+              className="animate-status-pop rounded-2xl border border-primary/30 bg-primary/5 p-5"
+              style={{ "--pop-glow": "var(--color-primary)" } as React.CSSProperties}
+            >
+              <h3 className="flex items-center gap-2 text-sm font-semibold">
+                <UserCheck className="h-4 w-4" /> MIS Head Assignment
+              </h3>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Select the MIS agent responsible for this issue.
+              </p>
+              <Select value={ticket.assignee_id ?? undefined} onValueChange={assignTicket}>
+                <SelectTrigger className="mt-3">
+                  <SelectValue placeholder="Assign an MIS agent" />
+                </SelectTrigger>
+                <SelectContent>
+                  {agents.map((agent) => (
+                    <SelectItem key={agent.id} value={agent.id}>
+                      {agent.full_name ?? agent.email ?? "MIS Agent"} ({agent.assigned_count})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           )}
 
