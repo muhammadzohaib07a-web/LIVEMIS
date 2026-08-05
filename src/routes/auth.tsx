@@ -10,6 +10,7 @@ import { BrandLogo } from "@/components/BrandLogo";
 import { LeenLoader } from "@/components/LeenLoader";
 import { disablePreviewMode, enablePreviewMode, isPreviewMode } from "@/lib/preview-auth";
 import { APP_TITLE } from "@/lib/app-meta";
+import { burstConfetti } from "@/lib/confetti";
 
 export const Route = createFileRoute("/auth")({
   head: () => ({
@@ -91,26 +92,9 @@ function AuthPage() {
       );
       return;
     }
+    burstConfetti(2500);
     toast.success("Welcome back!");
     navigate({ to: "/dashboard", replace: true });
-  };
-
-  const handlePreview = () => {
-    enablePreviewMode("employee");
-    toast.success("Preview mode enabled");
-    navigate({ to: "/dashboard", replace: true });
-  };
-
-  const handleMisPreview = () => {
-    enablePreviewMode("agent");
-    toast.success("MIS agent preview enabled");
-    navigate({ to: "/tickets", replace: true });
-  };
-
-  const handleMisHeadPreview = () => {
-    enablePreviewMode("admin");
-    toast.success("MIS Head preview enabled");
-    navigate({ to: "/tickets", replace: true });
   };
 
   if (checking) {
@@ -199,20 +183,6 @@ function AuthPage() {
             </div>
           </div>
 
-          <Button type="button" variant="secondary" className="w-full" onClick={handlePreview}>
-            Preview dashboard without sign in
-          </Button>
-          <Button type="button" variant="ghost" className="mt-2 w-full" onClick={handleMisPreview}>
-            Preview as MIS Agent
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            className="mt-1 w-full"
-            onClick={handleMisHeadPreview}
-          >
-            Preview as MIS Head
-          </Button>
         </div>
 
         <p className="mt-6 text-center text-xs text-muted-foreground">
