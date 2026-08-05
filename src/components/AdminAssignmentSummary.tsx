@@ -150,52 +150,7 @@ export function AdminAssignmentSummary({ tickets, people, agents, loading }: Pro
       </div>
 
       <div className="p-5 sm:p-6">
-        <div>
-          <h3 className="text-sm font-semibold">MIS Team Workload</h3>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Current ticket distribution across MIS agents.
-          </p>
-        </div>
-
-        {workload.length === 0 ? (
-          <p className="mt-4 rounded-xl border border-dashed border-border p-4 text-sm text-muted-foreground">
-            {loading ? "Loading MIS team workload…" : "No MIS agents are available yet."}
-          </p>
-        ) : (
-          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {workload.map((agent) => (
-              <div
-                key={agent.id}
-                className="rounded-xl border border-border/60 bg-background/35 p-4"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/15 text-sm font-black text-primary">
-                    {(agent.full_name ?? agent.email ?? "M")
-                      .split(/\s+/)
-                      .map((part) => part[0])
-                      .join("")
-                      .slice(0, 2)
-                      .toUpperCase()}
-                  </div>
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold">
-                      {agent.full_name ?? agent.email ?? "MIS Agent"}
-                    </p>
-                    <p className="truncate text-xs text-muted-foreground">{agent.email}</p>
-                  </div>
-                </div>
-                <div className="mt-4 grid grid-cols-4 gap-2 text-center">
-                  <WorkloadCount label="Total" value={agent.total} />
-                  <WorkloadCount label="Active" value={agent.active} />
-                  <WorkloadCount label="Feedback" value={agent.awaiting} />
-                  <WorkloadCount label="Closed" value={agent.closed} />
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        <div className="mt-7 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
             <h3 className="text-sm font-semibold">Ticket Assignment Details</h3>
             <p className="mt-1 text-xs text-muted-foreground">
@@ -305,6 +260,51 @@ export function AdminAssignmentSummary({ tickets, people, agents, loading }: Pro
             </tbody>
           </table>
         </div>
+
+        <div className="mt-7">
+          <h3 className="text-sm font-semibold">MIS Team Workload</h3>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Current ticket distribution across MIS agents.
+          </p>
+        </div>
+
+        {workload.length === 0 ? (
+          <p className="mt-4 rounded-xl border border-dashed border-border p-4 text-sm text-muted-foreground">
+            {loading ? "Loading MIS team workload…" : "No MIS agents are available yet."}
+          </p>
+        ) : (
+          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {workload.map((agent) => (
+              <div
+                key={agent.id}
+                className="rounded-xl border border-border/60 bg-background/35 p-4"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/15 text-sm font-black text-primary">
+                    {(agent.full_name ?? agent.email ?? "M")
+                      .split(/\s+/)
+                      .map((part) => part[0])
+                      .join("")
+                      .slice(0, 2)
+                      .toUpperCase()}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold">
+                      {agent.full_name ?? agent.email ?? "MIS Agent"}
+                    </p>
+                    <p className="truncate text-xs text-muted-foreground">{agent.email}</p>
+                  </div>
+                </div>
+                <div className="mt-4 grid grid-cols-4 gap-2 text-center">
+                  <WorkloadCount label="Total" value={agent.total} />
+                  <WorkloadCount label="Active" value={agent.active} />
+                  <WorkloadCount label="Feedback" value={agent.awaiting} />
+                  <WorkloadCount label="Closed" value={agent.closed} />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </section>
   );
