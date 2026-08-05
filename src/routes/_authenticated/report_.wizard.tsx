@@ -64,15 +64,38 @@ export const Route = createFileRoute("/_authenticated/report_/wizard")({
   component: ReportWizard,
 });
 
+// Grounded in this company's real Odoo usage (sales/purchase orders, the
+// custom Cutting -> Embroidery -> Stitching -> Packing production flow,
+// quality checks, inventory) instead of generic terms, but kept in plain
+// language a non-technical factory employee would say themselves.
 const DOING_CHIPS = [
-  "Entering or saving data",
-  "Printing something",
-  "Checking stock or a report",
-  "Logging in",
-  "Using a machine",
+  "Creating a new sales order",
+  "Creating or approving a purchase order",
+  "Starting a new production order",
+  "Checking if material is available for production",
+  "Recording a quality check (pass or fail)",
+  "Moving material between stages (Cutting, Embroidery, Stitching, Packing)",
+  "Marking a production order as complete",
+  "Printing a document (invoice, label, delivery note)",
+  "Checking stock or inventory",
+  "Logging into Odoo",
+  "Entering or saving data in a form",
+  "Sending an order or quotation to a customer or vendor",
+  "Checking a report or dashboard",
+  "Attaching or uploading a file",
+  "Scanning a barcode",
 ];
 
-const WHERE_CHIPS = ["Computer / Odoo screen", "Printer", "Machine on the floor", "Internet / Wi-Fi"];
+const WHERE_CHIPS = [
+  "Computer / Odoo screen",
+  "Cutting floor",
+  "Embroidery floor",
+  "Stitching floor",
+  "Packing floor",
+  "Printer",
+  "Machine on the floor",
+  "Internet / Wi-Fi",
+];
 
 // Q0 what were you doing, Q1 where, Q2 what happened, Q3 impact, Q4 photo, Q5 review
 const TOTAL_STEPS = 6;
