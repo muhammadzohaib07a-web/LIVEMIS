@@ -37,37 +37,59 @@ Return JSON only, no markdown, in this exact shape:
 - type "escalate": message briefly explains why this needs MIS/IT staff directly.`;
 
 // Structural facts about this company's real Odoo 17 Community instance,
-// gathered directly from their Odoo. Kept in two sizes: the full version for
-// the primary model, and a short version for the smaller fallback model
-// (which has a much tighter per-request token budget) so a fallback call
-// never fails just from prompt size alone.
-const ODOO_REFERENCE_FULL = `COMPANY ODOO REFERENCE — LEEN TEXTILE (Odoo 17 Community, self-hosted). Use these exact names, states, buttons, and error strings whenever relevant instead of generic/standard Odoo assumptions — this instance is heavily customized, especially manufacturing.
+// gathered directly from their Odoo. Kept deliberately short — this gets
+// resent on every single turn of every conversation (the API has no memory
+// between calls), so its token cost is paid over and over, not once.
+const ODOO_REFERENCE = `COMPANY ODOO NOTES — Leen Textile runs Odoo 17 Community, heavily customized for textile manufacturing. Manufacturing Orders go draft->confirmed->progress->to_close->done (buttons: Confirm, Start, Plan, Check availability, Produce). Sales Orders: draft->sent->sale. Purchase Orders: draft->sent->to approve->purchase (Approve/Unlock need Purchase Manager role). Finished goods pass through a custom multi-stage production flow: Cutting -> Embroidery -> Stitching -> Packing, each stage its own Manufacturing Order (prefixes CUTP-MO-, EMBP-MO-, STIPR-MO-, PACKP-MO-) linked by stock transfers, and each stage MO needs its incoming transfer Done and its Quality Check passed before it can start — "Complete the incoming stage transfer(s) first" and "Create and pass the Quality Check before starting" are real messages employees see when those aren't ready yet.`;
 
-1. Manufacturing Order (MO) states in order: draft (Draft) -> confirmed (Confirmed) -> progress (In Progress) -> to_close (To Close) -> done (Done), or cancel any time. Buttons: Confirm -> Start -> Plan -> Check availability -> Produce/Produce All -> Cancel. Unbuild appears after done.
-2. Sales Order states: draft (Quotation) -> sent (Quotation Sent) -> sale (Sales Order) -> cancel, plus a separate locked boolean. Buttons: Send -> Send PRO-FORMA Invoice -> Confirm -> Lock/Unlock -> Set to Quotation -> Cancel.
-3. Purchase Order states: draft (RFQ) -> sent (RFQ Sent) -> to approve (To Approve, Purchase Manager only above threshold) -> purchase (Purchase Order) -> cancel, plus locked boolean. Buttons: Send RFQ -> Confirm Order -> Approve Order -> Send PO -> Lock/Unlock (Unlock needs Purchase Manager) -> Cancel.
-4. Warehouse: single real warehouse "LEEN TEXTILE (PRIVATE) LIMITED" [WH]. Custom multi-stage production workflow (production_stage_tracking module): finished goods move Cutting -> Embroidery -> Stitching -> Packing, each its own linked MO, connected by stock transfers using custom operation types (Cutting IN/OUT, Embroidery OUT, Stitching OUT, Packing IN). An MO cannot start until its incoming stage transfer(s) are Done and its Quality Check has passed. MO numbering carries a stage prefix: CUTP-MO-XXXXX, EMBP-MO-XXXXX, STIPR-MO-XXXXX, PACKP-MO-XXXXX (generic MOs: WH/MO/00001).
-5. Quality Checks (custom model leen.quality.check): draft -> in_progress -> passed/failed. Must pass before a stage MO can start production; a failed check blocks it.
-6. Custom fields (all prefixed x_) exist on product.template (fabric/collection/design attributes), mrp.production (stage tracking: x_production_stage, x_stage_parent_mo_id, x_workflow_state, etc), and stock.picking (x_is_stage_transfer, x_stage_from/to, etc) — these are specific to the stage workflow above, not standard Odoo fields.
-7. Real validation error strings from the stage workflow: "Complete the incoming stage transfer(s) first: [transfers]. After they are Done, click Check Availability." / "Material is not ready for [MO]. Complete the required transfers and then click Check Availability." / "Create and pass the Quality Check before starting [MO]." / "Production is blocked because Quality Check(s) failed: [checks]." Native Odoo also shows a "Consumption Warning" wizard if actual material use differs from the BOM when marking an MO done.
-8. Document numbering: MOs WH/MO/00001 or stage-prefixed as above; Sales Orders S00001; Purchase Orders P00001; Internal transfers INT/00001; Unbuild UB/00001; Scrap SP/00001.
-9. Access groups in use: mrp.group_mrp_user/manager (Manufacturing User/Admin), account.group_account_user/readonly (Accounting), purchase.group_purchase_manager (needed for PO Approve/Unlock), base.group_system/user (standard Odoo admin/internal user).`;
+const STOPWORDS = new Set([
+  "the", "a", "an", "is", "are", "was", "were", "to", "of", "in", "on", "for", "and", "or",
+  "not", "it", "this", "that", "with", "can", "how", "what", "why", "hai", "ho", "ka", "ki",
+  "ke", "mein", "se", "ko", "aur", "kya", "nahi", "raha", "rahi", "rha", "kar", "krna", "kro",
+]);
 
-const ODOO_REFERENCE_COMPACT = `COMPANY ODOO NOTES — Leen Textile runs Odoo 17 Community, heavily customized for textile manufacturing. Key facts: Manufacturing Orders go draft->confirmed->progress->to_close->done (buttons: Confirm, Start, Plan, Check availability, Produce). Sales Orders: draft->sent->sale. Purchase Orders: draft->sent->to approve->purchase (Approve/Unlock need Purchase Manager role). Finished goods pass through a custom multi-stage production flow: Cutting -> Embroidery -> Stitching -> Packing, each stage its own Manufacturing Order (prefixes CUTP-MO-, EMBP-MO-, STIPR-MO-, PACKP-MO-) linked by stock transfers, and each stage MO needs its incoming transfer Done and its Quality Check passed before it can start — "Complete the incoming stage transfer(s) first" and "Create and pass the Quality Check before starting" are real messages employees see when those aren't ready yet.`;
+function extractKeywords(text: string): Set<string> {
+  return new Set(
+    text
+      .toLowerCase()
+      .split(/[^a-z0-9]+/)
+      .filter((word) => word.length > 2 && !STOPWORDS.has(word)),
+  );
+}
 
-async function loadKbContext(maxArticles: number, excerptLength: number): Promise<string> {
+// Rather than dumping every KB article into every request (expensive and
+// dilutes relevance), score published articles by how many keywords from
+// the conversation appear in their title/category and only include the
+// handful that actually look relevant. Falls back to nothing if no article
+// matches — the model's own Odoo/IT knowledge covers the rest anyway.
+async function loadRelevantKbContext(conversationText: string): Promise<string> {
   try {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: articles } = await supabaseAdmin
       .from("kb_articles")
       .select("title, category, content")
       .eq("published", true)
-      .limit(maxArticles);
+      .limit(60);
     if (!articles || articles.length === 0) return "";
-    return articles
+
+    const keywords = extractKeywords(conversationText);
+    if (keywords.size === 0) return "";
+
+    const scored = articles
+      .map((article) => {
+        const haystack = extractKeywords(`${article.title} ${article.category}`);
+        let score = 0;
+        for (const word of haystack) if (keywords.has(word)) score += 1;
+        return { article, score };
+      })
+      .filter((entry) => entry.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 5);
+
+    if (scored.length === 0) return "";
+    return scored
       .map(
-        (article) =>
-          `### ${article.title} (${article.category})\n${article.content.slice(0, excerptLength)}`,
+        ({ article }) => `### ${article.title} (${article.category})\n${article.content.slice(0, 400)}`,
       )
       .join("\n\n");
   } catch {
@@ -77,11 +99,9 @@ async function loadKbContext(maxArticles: number, excerptLength: number): Promis
 
 // Tried in order; if the first model errors, is rate-limited, or returns a
 // response that doesn't parse as valid JSON, the next one is tried instead
-// of surfacing an error to the employee. The smaller fallback model gets a
-// much lighter prompt (short Odoo notes, no KB dump) since it has a tight
-// per-request token budget that the full context would blow past on its own.
+// of surfacing an error to the employee.
 const FALLBACK_MODELS = ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"];
-const RECENT_MESSAGE_COUNT = 14;
+const RECENT_MESSAGE_COUNT = 12;
 
 async function callGroq(
   apiKey: string,
@@ -128,18 +148,17 @@ export const chatWithAssistant = createServerFn({ method: "POST" })
     }
 
     const recentMessages = data.messages.slice(-RECENT_MESSAGE_COUNT);
+    const conversationText = recentMessages.map((m) => m.content).join(" ");
 
-    const fullKbContext = await loadKbContext(10, 250);
-    const fullPrompt =
-      `${SYSTEM_PROMPT_BASE}\n\n${ODOO_REFERENCE_FULL}` +
-      (fullKbContext
-        ? `\n\nReference knowledge base articles for this specific company — prefer their documented steps over generic advice when relevant:\n\n${fullKbContext}`
+    const kbContext = await loadRelevantKbContext(conversationText);
+    const systemPrompt =
+      `${SYSTEM_PROMPT_BASE}\n\n${ODOO_REFERENCE}` +
+      (kbContext
+        ? `\n\nRelevant knowledge base articles for this specific issue — prefer their documented steps over generic advice:\n\n${kbContext}`
         : "");
-    const compactPrompt = `${SYSTEM_PROMPT_BASE}\n\n${ODOO_REFERENCE_COMPACT}`;
 
     let lastError: unknown;
-    for (const [index, model] of FALLBACK_MODELS.entries()) {
-      const systemPrompt = index === 0 ? fullPrompt : compactPrompt;
+    for (const model of FALLBACK_MODELS) {
       try {
         return await callGroq(apiKey, model, systemPrompt, recentMessages);
       } catch (error) {
