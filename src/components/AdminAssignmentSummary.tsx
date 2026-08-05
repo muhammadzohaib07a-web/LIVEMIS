@@ -1,6 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { useState } from "react";
-import { CheckCircle2, ChevronRight, Clock3, Inbox, UserCheck, UsersRound, X } from "lucide-react";
+import { CheckCircle2, ChevronRight, Clock3, Inbox, UserCheck, UsersRound } from "lucide-react";
 import type { Database } from "@/integrations/supabase/types";
 import {
   normalizedTicketStatus,
@@ -42,35 +41,13 @@ function displayPerson(person: AssignmentPerson | undefined, fallback: string) {
   return person?.full_name ?? person?.email ?? fallback;
 }
 
-type SummaryFilter = "assigned" | "active" | "unassigned" | "awaiting" | null;
-
-const FILTER_LABELS: Record<Exclude<SummaryFilter, null>, string> = {
-  assigned: "Assigned",
-  active: "Active Work",
-  unassigned: "Unassigned",
-  awaiting: "Awaiting Feedback",
-};
-
 export function AdminAssignmentSummary({ tickets, people, agents, loading }: Props) {
-  const [filter, setFilter] = useState<SummaryFilter>(null);
-
   const assignedTickets = tickets.filter((ticket) => ticket.assignee_id);
   const unassignedTickets = tickets.filter((ticket) => !ticket.assignee_id);
   const activeTickets = assignedTickets.filter(
     (ticket) => !["closed", "resolved", "canceled"].includes(ticket.status),
   );
   const awaitingTickets = assignedTickets.filter((ticket) => ticket.status === "awaiting_feedback");
-
-  const filteredTickets =
-    filter === "assigned"
-      ? assignedTickets
-      : filter === "active"
-        ? activeTickets
-        : filter === "unassigned"
-          ? unassignedTickets
-          : filter === "awaiting"
-            ? awaitingTickets
-            : tickets;
 
   const workload = agents.map((agent) => {
     const agentTickets = tickets.filter((ticket) => ticket.assignee_id === agent.id);
@@ -86,7 +63,7 @@ export function AdminAssignmentSummary({ tickets, people, agents, loading }: Pro
     };
   });
 
-  const sortedTickets = [...filteredTickets].sort(
+  const sortedTickets = [...tickets].sort(
     (left, right) => new Date(right.updated_at).getTime() - new Date(left.updated_at).getTime(),
   );
 
@@ -118,16 +95,12 @@ export function AdminAssignmentSummary({ tickets, people, agents, loading }: Pro
             label="Assigned"
             value={assignedTickets.length}
             detail="Tickets with an MIS owner"
-            active={filter === "assigned"}
-            onClick={() => setFilter((current) => (current === "assigned" ? null : "assigned"))}
           />
           <SummaryMetric
             icon={Clock3}
             label="Active Work"
             value={activeTickets.length}
             detail="Currently being handled"
-            active={filter === "active"}
-            onClick={() => setFilter((current) => (current === "active" ? null : "active"))}
           />
           <SummaryMetric
             icon={Inbox}
@@ -135,16 +108,12 @@ export function AdminAssignmentSummary({ tickets, people, agents, loading }: Pro
             value={unassignedTickets.length}
             detail="MIS Head action required"
             warning={unassignedTickets.length > 0}
-            active={filter === "unassigned"}
-            onClick={() => setFilter((current) => (current === "unassigned" ? null : "unassigned"))}
           />
           <SummaryMetric
             icon={CheckCircle2}
             label="Awaiting Feedback"
             value={awaitingTickets.length}
             detail="Employee confirmation pending"
-            active={filter === "awaiting"}
-            onClick={() => setFilter((current) => (current === "awaiting" ? null : "awaiting"))}
           />
         </div>
       </div>
@@ -195,28 +164,16 @@ export function AdminAssignmentSummary({ tickets, people, agents, loading }: Pro
           </div>
         )}
 
-        <div className="mt-7 flex flex-wrap items-center justify-between gap-2">
+        <div className="mt-7 flex items-center justify-between">
           <div>
             <h3 className="text-sm font-semibold">Ticket Assignment Details</h3>
             <p className="mt-1 text-xs text-muted-foreground">
               Most recently updated requests appear first.
             </p>
           </div>
-          <div className="flex items-center gap-2">
-            {filter && (
-              <button
-                type="button"
-                onClick={() => setFilter(null)}
-                className="flex items-center gap-1 rounded-full border border-primary/40 bg-primary/10 px-3 py-1 text-xs font-medium text-primary transition hover:bg-primary/20"
-              >
-                Filtering: {FILTER_LABELS[filter]}
-                <X className="h-3 w-3" />
-              </button>
-            )}
-            <span className="rounded-full border border-border bg-background/50 px-3 py-1 text-xs text-muted-foreground">
-              {filteredTickets.length} {filter ? "matching" : "total"}
-            </span>
-          </div>
+          <span className="rounded-full border border-border bg-background/50 px-3 py-1 text-xs text-muted-foreground">
+            {tickets.length} total
+          </span>
         </div>
 
         <div className="mt-4 overflow-x-auto rounded-xl border border-border/60">
@@ -296,9 +253,7 @@ export function AdminAssignmentSummary({ tickets, people, agents, loading }: Pro
               {!loading && sortedTickets.length === 0 && (
                 <tr>
                   <td colSpan={6} className="px-4 py-10 text-center text-muted-foreground">
-                    {filter
-                      ? `No tickets match "${FILTER_LABELS[filter]}".`
-                      : "No department tickets have been submitted yet."}
+                    No department tickets have been submitted yet.
                   </td>
                 </tr>
               )}
@@ -316,27 +271,15 @@ function SummaryMetric({
   value,
   detail,
   warning = false,
-  active = false,
-  onClick,
 }: {
   icon: typeof UserCheck;
   label: string;
   value: number;
   detail: string;
   warning?: boolean;
-  active?: boolean;
-  onClick?: () => void;
 }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`rounded-xl border p-3.5 text-left transition ${
-        active
-          ? "border-primary bg-primary/10"
-          : "border-border/60 bg-background/45 hover:border-primary/40"
-      }`}
-    >
+    <div className="rounded-xl border border-border/60 bg-background/45 p-3.5">
       <div className="flex items-center justify-between gap-2">
         <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
           {label}
@@ -345,7 +288,7 @@ function SummaryMetric({
       </div>
       <p className={`mt-2 text-2xl font-black ${warning ? "text-warning" : ""}`}>{value}</p>
       <p className="mt-0.5 text-[10px] text-muted-foreground">{detail}</p>
-    </button>
+    </div>
   );
 }
 
