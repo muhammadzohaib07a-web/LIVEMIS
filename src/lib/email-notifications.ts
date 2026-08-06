@@ -101,27 +101,14 @@ export const notifyAwaitingFeedback = createServerFn({ method: "POST" })
       .select("ticket_no, title, user_id")
       .eq("id", data.ticketId)
       .maybeSingle();
-    if (!ticket) {
-      console.error("[notifyAwaitingFeedback] ticket not found:", data.ticketId);
-      return;
-    }
+    if (!ticket) return;
 
     const { data: requester } = await supabaseAdmin
       .from("profiles")
       .select("email")
       .eq("id", ticket.user_id)
       .maybeSingle();
-    // profiles.email can be blank for older/manually-created accounts; auth.users
-    // always has the address the employee actually signs in with.
-    let recipientEmail = requester?.email ?? null;
-    if (!recipientEmail) {
-      const { data: authUser } = await supabaseAdmin.auth.admin.getUserById(ticket.user_id);
-      recipientEmail = authUser?.user?.email ?? null;
-    }
-    if (!recipientEmail) {
-      console.error("[notifyAwaitingFeedback] no email on file for user:", ticket.user_id);
-      return;
-    }
+    if (!requester?.email) return;
 
     const link = `${APP_URL}/tickets/${data.ticketId}`;
     const html = emailShell(
@@ -132,5 +119,5 @@ export const notifyAwaitingFeedback = createServerFn({ method: "POST" })
       link,
     );
 
-    await sendEmail(recipientEmail, `Ticket ${ticket.ticket_no} needs your feedback`, html);
+    await sendEmail(requester.email, `Ticket ${ticket.ticket_no} needs your feedback`, html);
   });

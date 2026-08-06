@@ -49,7 +49,8 @@ import { sendFeedbackReminders } from "@/lib/feedback-reminders";
 
 type TicketRow = Database["public"]["Tables"]["tickets"]["Row"];
 type NotificationRow = Database["public"]["Tables"]["notifications"]["Row"];
-type Requester = { department: string | null };
+
+const FEEDBACK_REMINDER_AFTER_MS = 60 * 60 * 1000;
 
 function isAssignmentNotification(notification: Pick<NotificationRow, "title" | "read">) {
   return !notification.read && notification.title.toLowerCase().includes("assigned to you");
@@ -95,7 +96,6 @@ function Dashboard() {
   const [role, setRole] = useState<AppRole>("employee");
   const [loadingTickets, setLoadingTickets] = useState(true);
   const [newAssignments, setNewAssignments] = useState<NotificationRow[]>([]);
-  const [requesters, setRequesters] = useState<Record<string, Requester>>({});
 
   const dismissAssignment = (notificationId: string) => {
     setNewAssignments((current) => current.filter((n) => n.id !== notificationId));
@@ -164,19 +164,6 @@ function Dashboard() {
       setTickets(t ?? []);
       setLoadingTickets(false);
 
-      if (isMisStaff(context.role) && t && t.length > 0) {
-        const userIds = [...new Set(t.map((ticket) => ticket.user_id))];
-        const { data: profiles } = await supabase
-          .from("profiles")
-          .select("id, department")
-          .in("id", userIds);
-        setRequesters(
-          Object.fromEntries(
-            (profiles ?? []).map((p) => [p.id, { department: p.department }]),
-          ),
-        );
-      }
-
       if (context.role === "agent") {
         const { data: n } = await supabase
           .from("notifications")
@@ -238,13 +225,17 @@ function Dashboard() {
   }, []);
 
   const feedbackReminders = useMemo(
-    () => (role === "employee" ? tickets.filter((t) => t.status === "awaiting_feedback") : []),
+    () =>
+      role === "employee"
+        ? tickets.filter(
+            (t) =>
+              t.status === "awaiting_feedback" &&
+              Date.now() - new Date(t.updated_at).getTime() >= FEEDBACK_REMINDER_AFTER_MS,
+          )
+        : [],
     [tickets, role],
   );
 
-  // The server only actually emails/re-notifies for tickets that have been
-  // waiting an hour or more (see feedback-reminders.ts) — calling it here
-  // whenever any awaiting_feedback ticket exists is safe and cheap.
   const remindersSentRef = useRef(false);
   useEffect(() => {
     if (role !== "employee" || isPreviewMode() || remindersSentRef.current) return;
@@ -514,11 +505,11 @@ function Dashboard() {
             <div className="min-w-0 flex-1">
               <h2 className="font-bold">
                 {feedbackReminders.length === 1
-                  ? "MIS is waiting on your feedback"
-                  : `MIS is waiting on your feedback for ${feedbackReminders.length} tickets`}
+                  ? "A ticket is still waiting on your feedback"
+                  : `${feedbackReminders.length} tickets are still waiting on your feedback`}
               </h2>
               <p className="mt-1 text-xs text-muted-foreground">
-                Please confirm whether the issue is fixed, or let us know it's still not working.
+                It's been over an hour since MIS asked — please confirm if the issue is fixed.
               </p>
               <ul className="mt-3 space-y-2">
                 {feedbackReminders.map((t) => (
@@ -739,8 +730,6 @@ function Dashboard() {
                     <p className="mt-1 truncate text-sm font-medium">{t.title}</p>
                     <p className="text-xs text-muted-foreground">
                       {t.category} ·{" "}
-                      {isMisStaff(role) &&
-                        `${requesters[t.user_id]?.department ?? "Dept not set"} · `}
                       {normalizedTicketStatus(t.status) === "closed" && t.closed_at
                         ? `Closed ${new Date(t.closed_at).toLocaleString()}`
                         : `Updated ${new Date(t.updated_at).toLocaleString()}`}
