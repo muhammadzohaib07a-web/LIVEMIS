@@ -140,6 +140,9 @@ function RootComponent() {
       if (!mounted) return;
       const { data: sub } = supabase.auth.onAuthStateChange((event) => {
         if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") return;
+        void import("@/lib/current-user").then(({ invalidateCurrentUserContext }) =>
+          invalidateCurrentUserContext(),
+        );
         router.invalidate();
         if (event !== "SIGNED_OUT") queryClient.invalidateQueries();
       });
