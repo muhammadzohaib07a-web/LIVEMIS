@@ -32,7 +32,7 @@ function htmlToPlainText(html: string) {
     .trim();
 }
 
-export async function sendEmail(to: string, subject: string, html: string) {
+async function sendEmail(to: string, subject: string, html: string) {
   const transporter = getTransporter();
   if (!transporter) {
     console.error("[email-notifications] GMAIL_USER/GMAIL_APP_PASSWORD not configured; email skipped.");
@@ -51,7 +51,7 @@ export async function sendEmail(to: string, subject: string, html: string) {
   }
 }
 
-export function emailShell(heading: string, bodyHtml: string, link: string) {
+function emailShell(heading: string, bodyHtml: string, link: string) {
   return `
     <div style="font-family:'Segoe UI',Arial,sans-serif;max-width:520px;margin:0 auto;padding:24px;color:#1a1f2e;">
       <p style="margin:0 0 16px;font-size:12px;letter-spacing:0.08em;text-transform:uppercase;color:#64748b;">MIS Support Hub</p>

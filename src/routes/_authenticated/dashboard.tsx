@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ResponsiveContainer,
   PieChart,
@@ -45,12 +45,9 @@ import {
   TICKET_STATUS_STYLES,
 } from "@/lib/ticket-status";
 import { APP_TITLE } from "@/lib/app-meta";
-import { sendFeedbackReminders } from "@/lib/feedback-reminders";
 
 type TicketRow = Database["public"]["Tables"]["tickets"]["Row"];
 type NotificationRow = Database["public"]["Tables"]["notifications"]["Row"];
-
-const FEEDBACK_REMINDER_AFTER_MS = 60 * 60 * 1000;
 
 function isAssignmentNotification(notification: Pick<NotificationRow, "title" | "read">) {
   return !notification.read && notification.title.toLowerCase().includes("assigned to you");
@@ -223,28 +220,6 @@ function Dashboard() {
       if (notificationChannel) supabase.removeChannel(notificationChannel);
     };
   }, []);
-
-  const feedbackReminders = useMemo(
-    () =>
-      role === "employee"
-        ? tickets.filter(
-            (t) =>
-              t.status === "awaiting_feedback" &&
-              Date.now() - new Date(t.updated_at).getTime() >= FEEDBACK_REMINDER_AFTER_MS,
-          )
-        : [],
-    [tickets, role],
-  );
-
-  const remindersSentRef = useRef(false);
-  useEffect(() => {
-    if (role !== "employee" || isPreviewMode() || remindersSentRef.current) return;
-    if (feedbackReminders.length === 0) return;
-    remindersSentRef.current = true;
-    void sendFeedbackReminders().catch((error) =>
-      console.error("[dashboard] feedback reminder send failed", error),
-    );
-  }, [feedbackReminders, role]);
 
   const dashboardCopy = {
     employee: {
@@ -492,47 +467,6 @@ function Dashboard() {
             >
               Dismiss all
             </button>
-          </div>
-        </div>
-      )}
-
-      {role === "employee" && feedbackReminders.length > 0 && (
-        <div className="mb-6 rounded-2xl border border-warning/40 bg-warning/10 p-5">
-          <div className="flex items-start gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-warning/20 text-warning">
-              <Clock className="h-5 w-5" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <h2 className="font-bold">
-                {feedbackReminders.length === 1
-                  ? "A ticket is still waiting on your feedback"
-                  : `${feedbackReminders.length} tickets are still waiting on your feedback`}
-              </h2>
-              <p className="mt-1 text-xs text-muted-foreground">
-                It's been over an hour since MIS asked — please confirm if the issue is fixed.
-              </p>
-              <ul className="mt-3 space-y-2">
-                {feedbackReminders.map((t) => (
-                  <li key={t.id}>
-                    <Link
-                      to="/tickets/$id"
-                      params={{ id: t.id }}
-                      className="flex items-center justify-between gap-3 rounded-xl border border-warning/30 bg-background/50 px-3 py-2 text-sm transition hover:border-warning/60"
-                    >
-                      <span className="min-w-0 truncate">
-                        <span className="font-mono text-xs text-muted-foreground">
-                          {t.ticket_no}
-                        </span>{" "}
-                        <span className="font-medium">{t.title}</span>
-                      </span>
-                      <span className="shrink-0 text-xs font-semibold text-warning">
-                        Respond now
-                      </span>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </div>
           </div>
         </div>
       )}
