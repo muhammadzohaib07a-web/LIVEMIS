@@ -35,7 +35,7 @@ import {
   TICKET_STATUS_STYLES,
 } from "@/lib/ticket-status";
 import { APP_TITLE } from "@/lib/app-meta";
-import { downloadCsv } from "@/lib/export-csv";
+import { downloadExcel } from "@/lib/export-excel";
 
 type Ticket = Database["public"]["Tables"]["tickets"]["Row"];
 type Status = Database["public"]["Enums"]["ticket_status"] | "all";
@@ -213,28 +213,47 @@ function TicketsList() {
     return true;
   });
 
-  const exportFiltered = () => {
-    downloadCsv(
-      `mis-tickets-${new Date().toISOString().slice(0, 10)}.csv`,
-      filtered.map((t) => ({
-        "Ticket No": t.ticket_no,
-        Title: t.title,
-        Description: t.description,
-        Category: getCategoryLabel(t.category, categories),
-        Priority: t.priority,
-        Status: statusLabel[t.status],
-        "Reported By": requesters[t.user_id]?.full_name ?? requesters[t.user_id]?.email ?? "Unknown",
-        Department: requesters[t.user_id]?.department ?? "Not set",
-        "Assigned To": t.assignee_id
-          ? (requesters[t.assignee_id]?.full_name ?? requesters[t.assignee_id]?.email ?? "MIS Agent")
-          : "Unassigned",
-        "Opened At": new Date(t.created_at).toLocaleString(),
-        "Closed At":
-          normalizedTicketStatus(t.status) === "closed" && (t.closed_at ?? t.updated_at)
-            ? new Date(t.closed_at ?? t.updated_at).toLocaleString()
-            : "",
-      })),
-    );
+  const [exporting, setExporting] = useState(false);
+  const exportFiltered = async () => {
+    setExporting(true);
+    try {
+      await downloadExcel(
+        `mis-tickets-${new Date().toISOString().slice(0, 10)}.xlsx`,
+        [
+          { header: "Ticket No", key: "ticketNo", width: 14 },
+          { header: "Title", key: "title", width: 32 },
+          { header: "Description", key: "description", width: 40 },
+          { header: "Category", key: "category", width: 22 },
+          { header: "Priority", key: "priority", width: 12 },
+          { header: "Status", key: "status", width: 20 },
+          { header: "Reported By", key: "reportedBy", width: 22 },
+          { header: "Department", key: "department", width: 18 },
+          { header: "Assigned To", key: "assignedTo", width: 22 },
+          { header: "Opened At", key: "openedAt", width: 20 },
+          { header: "Closed At", key: "closedAt", width: 20 },
+        ],
+        filtered.map((t) => ({
+          ticketNo: t.ticket_no,
+          title: t.title,
+          description: t.description,
+          category: getCategoryLabel(t.category, categories),
+          priority: t.priority,
+          status: statusLabel[t.status],
+          reportedBy: requesters[t.user_id]?.full_name ?? requesters[t.user_id]?.email ?? "Unknown",
+          department: requesters[t.user_id]?.department ?? "Not set",
+          assignedTo: t.assignee_id
+            ? (requesters[t.assignee_id]?.full_name ?? requesters[t.assignee_id]?.email ?? "MIS Agent")
+            : "Unassigned",
+          openedAt: new Date(t.created_at).toLocaleString(),
+          closedAt:
+            normalizedTicketStatus(t.status) === "closed" && (t.closed_at ?? t.updated_at)
+              ? new Date(t.closed_at ?? t.updated_at).toLocaleString()
+              : "",
+        })),
+      );
+    } finally {
+      setExporting(false);
+    }
   };
 
   return (
@@ -265,8 +284,13 @@ function TicketsList() {
           </Link>
         )}
         {role === "admin" && filtered.length > 0 && (
-          <Button type="button" variant="outline" onClick={exportFiltered}>
-            <Download className="mr-2 h-4 w-4" /> Export to Excel
+          <Button type="button" variant="outline" onClick={exportFiltered} disabled={exporting}>
+            {exporting ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Download className="mr-2 h-4 w-4" />
+            )}
+            Export to Excel
           </Button>
         )}
       </div>
