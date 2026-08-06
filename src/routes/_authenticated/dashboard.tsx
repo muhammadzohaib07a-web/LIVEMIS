@@ -50,8 +50,6 @@ import { sendFeedbackReminders } from "@/lib/feedback-reminders";
 type TicketRow = Database["public"]["Tables"]["tickets"]["Row"];
 type NotificationRow = Database["public"]["Tables"]["notifications"]["Row"];
 
-const FEEDBACK_REMINDER_AFTER_MS = 60 * 60 * 1000;
-
 function isAssignmentNotification(notification: Pick<NotificationRow, "title" | "read">) {
   return !notification.read && notification.title.toLowerCase().includes("assigned to you");
 }
@@ -225,17 +223,13 @@ function Dashboard() {
   }, []);
 
   const feedbackReminders = useMemo(
-    () =>
-      role === "employee"
-        ? tickets.filter(
-            (t) =>
-              t.status === "awaiting_feedback" &&
-              Date.now() - new Date(t.updated_at).getTime() >= FEEDBACK_REMINDER_AFTER_MS,
-          )
-        : [],
+    () => (role === "employee" ? tickets.filter((t) => t.status === "awaiting_feedback") : []),
     [tickets, role],
   );
 
+  // The server only actually emails/re-notifies for tickets that have been
+  // waiting an hour or more (see feedback-reminders.ts) — calling it here
+  // whenever any awaiting_feedback ticket exists is safe and cheap.
   const remindersSentRef = useRef(false);
   useEffect(() => {
     if (role !== "employee" || isPreviewMode() || remindersSentRef.current) return;
@@ -505,11 +499,11 @@ function Dashboard() {
             <div className="min-w-0 flex-1">
               <h2 className="font-bold">
                 {feedbackReminders.length === 1
-                  ? "A ticket is still waiting on your feedback"
-                  : `${feedbackReminders.length} tickets are still waiting on your feedback`}
+                  ? "MIS is waiting on your feedback"
+                  : `MIS is waiting on your feedback for ${feedbackReminders.length} tickets`}
               </h2>
               <p className="mt-1 text-xs text-muted-foreground">
-                It's been over an hour since MIS asked — please confirm if the issue is fixed.
+                Please confirm whether the issue is fixed, or let us know it's still not working.
               </p>
               <ul className="mt-3 space-y-2">
                 {feedbackReminders.map((t) => (
