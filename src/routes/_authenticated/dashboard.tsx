@@ -49,6 +49,7 @@ import { sendFeedbackReminders } from "@/lib/feedback-reminders";
 
 type TicketRow = Database["public"]["Tables"]["tickets"]["Row"];
 type NotificationRow = Database["public"]["Tables"]["notifications"]["Row"];
+type Requester = { full_name: string | null; email: string | null; department: string | null };
 
 function isAssignmentNotification(notification: Pick<NotificationRow, "title" | "read">) {
   return !notification.read && notification.title.toLowerCase().includes("assigned to you");
@@ -94,6 +95,7 @@ function Dashboard() {
   const [role, setRole] = useState<AppRole>("employee");
   const [loadingTickets, setLoadingTickets] = useState(true);
   const [newAssignments, setNewAssignments] = useState<NotificationRow[]>([]);
+  const [requesters, setRequesters] = useState<Record<string, Requester>>({});
 
   const dismissAssignment = (notificationId: string) => {
     setNewAssignments((current) => current.filter((n) => n.id !== notificationId));
@@ -161,6 +163,22 @@ function Dashboard() {
       const { data: t } = await query;
       setTickets(t ?? []);
       setLoadingTickets(false);
+
+      if (isMisStaff(context.role) && t && t.length > 0) {
+        const userIds = [...new Set(t.map((ticket) => ticket.user_id))];
+        const { data: profiles } = await supabase
+          .from("profiles")
+          .select("id, full_name, email, department")
+          .in("id", userIds);
+        setRequesters(
+          Object.fromEntries(
+            (profiles ?? []).map((p) => [
+              p.id,
+              { full_name: p.full_name, email: p.email, department: p.department },
+            ]),
+          ),
+        );
+      }
 
       if (context.role === "agent") {
         const { data: n } = await supabase
@@ -724,6 +742,8 @@ function Dashboard() {
                     <p className="mt-1 truncate text-sm font-medium">{t.title}</p>
                     <p className="text-xs text-muted-foreground">
                       {t.category} ·{" "}
+                      {isMisStaff(role) &&
+                        `${requesters[t.user_id]?.full_name ?? requesters[t.user_id]?.email ?? "Unknown employee"} · ${requesters[t.user_id]?.department ?? "Dept not set"} · `}
                       {normalizedTicketStatus(t.status) === "closed" && t.closed_at
                         ? `Closed ${new Date(t.closed_at).toLocaleString()}`
                         : `Updated ${new Date(t.updated_at).toLocaleString()}`}
