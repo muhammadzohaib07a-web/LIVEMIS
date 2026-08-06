@@ -51,6 +51,9 @@ type TicketRow = Database["public"]["Tables"]["tickets"]["Row"];
 type NotificationRow = Database["public"]["Tables"]["notifications"]["Row"];
 type Requester = { full_name: string | null; email: string | null; department: string | null };
 
+const FEEDBACK_REMINDER_THROTTLE_KEY = "mis-feedback-reminder-last-sent";
+const FEEDBACK_REMINDER_THROTTLE_MS = 10 * 60 * 1000;
+
 function isAssignmentNotification(notification: Pick<NotificationRow, "title" | "read">) {
   return !notification.read && notification.title.toLowerCase().includes("assigned to you");
 }
@@ -246,13 +249,18 @@ function Dashboard() {
   );
 
   // The server only actually emails/re-notifies for tickets that have been
-  // waiting an hour or more (see feedback-reminders.ts) — calling it here
-  // whenever any awaiting_feedback ticket exists is safe and cheap.
+  // waiting an hour or more (see feedback-reminders.ts), so this is safe to
+  // call often — but a fresh network round-trip on every single tab switch
+  // still adds up, so it's throttled to once per browser tab per 10 minutes
+  // instead of once per Dashboard mount.
   const remindersSentRef = useRef(false);
   useEffect(() => {
     if (role !== "employee" || isPreviewMode() || remindersSentRef.current) return;
     if (feedbackReminders.length === 0) return;
+    const lastSent = Number(sessionStorage.getItem(FEEDBACK_REMINDER_THROTTLE_KEY) ?? 0);
+    if (Date.now() - lastSent < FEEDBACK_REMINDER_THROTTLE_MS) return;
     remindersSentRef.current = true;
+    sessionStorage.setItem(FEEDBACK_REMINDER_THROTTLE_KEY, String(Date.now()));
     void sendFeedbackReminders().catch((error) =>
       console.error("[dashboard] feedback reminder send failed", error),
     );
