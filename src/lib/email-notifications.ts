@@ -108,7 +108,14 @@ export const notifyAwaitingFeedback = createServerFn({ method: "POST" })
       .select("email")
       .eq("id", ticket.user_id)
       .maybeSingle();
-    if (!requester?.email) return;
+    // profiles.email can be blank for older/manually-created accounts; auth.users
+    // always has the address the employee actually signs in with.
+    let recipientEmail = requester?.email ?? null;
+    if (!recipientEmail) {
+      const { data: authUser } = await supabaseAdmin.auth.admin.getUserById(ticket.user_id);
+      recipientEmail = authUser?.user?.email ?? null;
+    }
+    if (!recipientEmail) return;
 
     const link = `${APP_URL}/tickets/${data.ticketId}`;
     const html = emailShell(
@@ -119,5 +126,5 @@ export const notifyAwaitingFeedback = createServerFn({ method: "POST" })
       link,
     );
 
-    await sendEmail(requester.email, `Ticket ${ticket.ticket_no} needs your feedback`, html);
+    await sendEmail(recipientEmail, `Ticket ${ticket.ticket_no} needs your feedback`, html);
   });
