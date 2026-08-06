@@ -53,6 +53,7 @@ const FILTER_LABELS: Record<Exclude<SummaryFilter, null>, string> = {
 
 export function AdminAssignmentSummary({ tickets, people, agents, loading }: Props) {
   const [filter, setFilter] = useState<SummaryFilter>(null);
+  const [agentFilter, setAgentFilter] = useState<string | null>(null);
 
   const assignedTickets = tickets.filter((ticket) => ticket.assignee_id);
   const unassignedTickets = tickets.filter((ticket) => !ticket.assignee_id);
@@ -61,8 +62,9 @@ export function AdminAssignmentSummary({ tickets, people, agents, loading }: Pro
   );
   const awaitingTickets = assignedTickets.filter((ticket) => ticket.status === "awaiting_feedback");
 
-  const filteredTickets =
-    filter === "assigned"
+  const filteredTickets = agentFilter
+    ? tickets.filter((ticket) => ticket.assignee_id === agentFilter)
+    : filter === "assigned"
       ? assignedTickets
       : filter === "active"
         ? activeTickets
@@ -71,6 +73,16 @@ export function AdminAssignmentSummary({ tickets, people, agents, loading }: Pro
           : filter === "awaiting"
             ? awaitingTickets
             : tickets;
+
+  const selectFilter = (next: Exclude<SummaryFilter, null>) => {
+    setAgentFilter(null);
+    setFilter((current) => (current === next ? null : next));
+  };
+
+  const selectAgentFilter = (agentId: string) => {
+    setFilter(null);
+    setAgentFilter((current) => (current === agentId ? null : agentId));
+  };
 
   const workload = agents.map((agent) => {
     const agentTickets = tickets.filter((ticket) => ticket.assignee_id === agent.id);
@@ -89,6 +101,13 @@ export function AdminAssignmentSummary({ tickets, people, agents, loading }: Pro
   const sortedTickets = [...filteredTickets].sort(
     (left, right) => new Date(right.updated_at).getTime() - new Date(left.updated_at).getTime(),
   );
+
+  const activeAgent = agentFilter ? workload.find((agent) => agent.id === agentFilter) : undefined;
+  const activeFilterLabel = agentFilter
+    ? (activeAgent?.full_name ?? activeAgent?.email ?? "Agent")
+    : filter
+      ? FILTER_LABELS[filter]
+      : null;
 
   return (
     <section className="mt-6 overflow-hidden rounded-2xl border border-primary/25 bg-surface/60 backdrop-blur">
@@ -119,7 +138,7 @@ export function AdminAssignmentSummary({ tickets, people, agents, loading }: Pro
             value={assignedTickets.length}
             detail="Tickets with an MIS owner"
             active={filter === "assigned"}
-            onClick={() => setFilter((current) => (current === "assigned" ? null : "assigned"))}
+            onClick={() => selectFilter("assigned")}
           />
           <SummaryMetric
             icon={Clock3}
@@ -127,7 +146,7 @@ export function AdminAssignmentSummary({ tickets, people, agents, loading }: Pro
             value={activeTickets.length}
             detail="Currently being handled"
             active={filter === "active"}
-            onClick={() => setFilter((current) => (current === "active" ? null : "active"))}
+            onClick={() => selectFilter("active")}
           />
           <SummaryMetric
             icon={Inbox}
@@ -136,7 +155,7 @@ export function AdminAssignmentSummary({ tickets, people, agents, loading }: Pro
             detail="MIS Head action required"
             warning={unassignedTickets.length > 0}
             active={filter === "unassigned"}
-            onClick={() => setFilter((current) => (current === "unassigned" ? null : "unassigned"))}
+            onClick={() => selectFilter("unassigned")}
           />
           <SummaryMetric
             icon={CheckCircle2}
@@ -144,7 +163,7 @@ export function AdminAssignmentSummary({ tickets, people, agents, loading }: Pro
             value={awaitingTickets.length}
             detail="Employee confirmation pending"
             active={filter === "awaiting"}
-            onClick={() => setFilter((current) => (current === "awaiting" ? null : "awaiting"))}
+            onClick={() => selectFilter("awaiting")}
           />
         </div>
       </div>
@@ -158,18 +177,21 @@ export function AdminAssignmentSummary({ tickets, people, agents, loading }: Pro
             </p>
           </div>
           <div className="flex items-center gap-2">
-            {filter && (
+            {activeFilterLabel && (
               <button
                 type="button"
-                onClick={() => setFilter(null)}
+                onClick={() => {
+                  setFilter(null);
+                  setAgentFilter(null);
+                }}
                 className="flex items-center gap-1 rounded-full border border-primary/40 bg-primary/10 px-3 py-1 text-xs font-medium text-primary transition hover:bg-primary/20"
               >
-                Filtering: {FILTER_LABELS[filter]}
+                Filtering: {activeFilterLabel}
                 <X className="h-3 w-3" />
               </button>
             )}
             <span className="rounded-full border border-border bg-background/50 px-3 py-1 text-xs text-muted-foreground">
-              {filteredTickets.length} {filter ? "matching" : "total"}
+              {filteredTickets.length} {activeFilterLabel ? "matching" : "total"}
             </span>
           </div>
         </div>
@@ -251,8 +273,8 @@ export function AdminAssignmentSummary({ tickets, people, agents, loading }: Pro
               {!loading && sortedTickets.length === 0 && (
                 <tr>
                   <td colSpan={6} className="px-4 py-10 text-center text-muted-foreground">
-                    {filter
-                      ? `No tickets match "${FILTER_LABELS[filter]}".`
+                    {activeFilterLabel
+                      ? `No tickets match "${activeFilterLabel}".`
                       : "No department tickets have been submitted yet."}
                   </td>
                 </tr>
@@ -275,9 +297,15 @@ export function AdminAssignmentSummary({ tickets, people, agents, loading }: Pro
         ) : (
           <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {workload.map((agent) => (
-              <div
+              <button
                 key={agent.id}
-                className="rounded-xl border border-border/60 bg-background/35 p-4"
+                type="button"
+                onClick={() => selectAgentFilter(agent.id)}
+                className={`rounded-xl border p-4 text-left transition ${
+                  agentFilter === agent.id
+                    ? "border-primary bg-primary/10"
+                    : "border-border/60 bg-background/35 hover:border-primary/40"
+                }`}
               >
                 <div className="flex items-center gap-3">
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/15 text-sm font-black text-primary">
@@ -301,7 +329,7 @@ export function AdminAssignmentSummary({ tickets, people, agents, loading }: Pro
                   <WorkloadCount label="Feedback" value={agent.awaiting} />
                   <WorkloadCount label="Closed" value={agent.closed} />
                 </div>
-              </div>
+              </button>
             ))}
           </div>
         )}
