@@ -2,7 +2,8 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
-import { PlusCircle, Search, Loader2, ChevronRight, Inbox } from "lucide-react";
+import { PlusCircle, Search, Loader2, ChevronRight, Inbox, Download } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -34,6 +35,7 @@ import {
   TICKET_STATUS_STYLES,
 } from "@/lib/ticket-status";
 import { APP_TITLE } from "@/lib/app-meta";
+import { downloadCsv } from "@/lib/export-csv";
 
 type Ticket = Database["public"]["Tables"]["tickets"]["Row"];
 type Status = Database["public"]["Enums"]["ticket_status"] | "all";
@@ -169,7 +171,12 @@ function TicketsList() {
       const rows = data ?? [];
       setTickets(rows);
       if (isMisStaff(context.role) && rows.length > 0) {
-        const userIds = [...new Set(rows.map((ticket) => ticket.user_id))];
+        const userIds = [
+          ...new Set([
+            ...rows.map((ticket) => ticket.user_id),
+            ...rows.filter((ticket) => ticket.assignee_id).map((ticket) => ticket.assignee_id as string),
+          ]),
+        ];
         const { data: profiles } = await supabase
           .from("profiles")
           .select("id, full_name, department, email")
@@ -206,6 +213,30 @@ function TicketsList() {
     return true;
   });
 
+  const exportFiltered = () => {
+    downloadCsv(
+      `mis-tickets-${new Date().toISOString().slice(0, 10)}.csv`,
+      filtered.map((t) => ({
+        "Ticket No": t.ticket_no,
+        Title: t.title,
+        Description: t.description,
+        Category: getCategoryLabel(t.category, categories),
+        Priority: t.priority,
+        Status: statusLabel[t.status],
+        "Reported By": requesters[t.user_id]?.full_name ?? requesters[t.user_id]?.email ?? "Unknown",
+        Department: requesters[t.user_id]?.department ?? "Not set",
+        "Assigned To": t.assignee_id
+          ? (requesters[t.assignee_id]?.full_name ?? requesters[t.assignee_id]?.email ?? "MIS Agent")
+          : "Unassigned",
+        "Opened At": new Date(t.created_at).toLocaleString(),
+        "Closed At":
+          normalizedTicketStatus(t.status) === "closed" && (t.closed_at ?? t.updated_at)
+            ? new Date(t.closed_at ?? t.updated_at).toLocaleString()
+            : "",
+      })),
+    );
+  };
+
   return (
     <>
       <div className="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
@@ -232,6 +263,11 @@ function TicketsList() {
           >
             <PlusCircle className="h-4 w-4" /> New Ticket
           </Link>
+        )}
+        {role === "admin" && filtered.length > 0 && (
+          <Button type="button" variant="outline" onClick={exportFiltered}>
+            <Download className="mr-2 h-4 w-4" /> Export to Excel
+          </Button>
         )}
       </div>
 
