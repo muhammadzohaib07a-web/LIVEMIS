@@ -27,7 +27,9 @@ import {
   type TicketCategoryOption,
 } from "@/lib/ticket-categories";
 import {
+  getSlaState,
   normalizedTicketStatus,
+  SLA_TONE_STYLES,
   TICKET_STATUS_LABELS,
   TICKET_STATUS_STYLES,
 } from "@/lib/ticket-status";
@@ -307,7 +309,9 @@ function TicketsList() {
           </div>
         ) : (
           <ul className="divide-y divide-border/60">
-            {filtered.map((t) => (
+            {filtered.map((t) => {
+              const slaState = getSlaState(t);
+              return (
               <li key={t.id}>
                 <Link
                   to="/tickets/$id"
@@ -329,6 +333,13 @@ function TicketsList() {
                       <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
                         · {getCategoryLabel(t.category, categories)}
                       </span>
+                      {slaState && (
+                        <span
+                          className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${SLA_TONE_STYLES[slaState.tone]}`}
+                        >
+                          {slaState.label}
+                        </span>
+                      )}
                     </div>
                     <p className="mt-1 truncate text-sm font-semibold">{t.title}</p>
                     <p className="mt-0.5 text-xs text-muted-foreground">
@@ -357,7 +368,8 @@ function TicketsList() {
                   <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
                 </Link>
               </li>
-            ))}
+              );
+            })}
           </ul>
         )}
       </div>
