@@ -31,6 +31,13 @@ export const sendFeedbackReminders = createServerFn({ method: "POST" })
       .select("email")
       .eq("id", userId)
       .maybeSingle();
+    // profiles.email can be blank for older/manually-created accounts; auth.users
+    // always has the address the employee actually signs in with.
+    let recipientEmail = profile?.email ?? null;
+    if (!recipientEmail) {
+      const { data: authUser } = await supabaseAdmin.auth.admin.getUserById(userId);
+      recipientEmail = authUser?.user?.email ?? null;
+    }
 
     for (const ticket of tickets) {
       const link = `/tickets/${ticket.id}`;
@@ -51,7 +58,7 @@ export const sendFeedbackReminders = createServerFn({ method: "POST" })
         link,
       });
 
-      if (profile?.email) {
+      if (recipientEmail) {
         const html = emailShell(
           `Ticket ${ticket.ticket_no} is waiting on your feedback`,
           `<p style="margin:0 0 8px;">It's been over an hour since MIS marked this ticket as resolved and awaiting your confirmation.</p>
@@ -60,10 +67,12 @@ export const sendFeedbackReminders = createServerFn({ method: "POST" })
           `${APP_URL}${link}`,
         );
         await sendEmail(
-          profile.email,
+          recipientEmail,
           `Reminder: Ticket ${ticket.ticket_no} awaiting your feedback`,
           html,
         );
+      } else {
+        console.error("[sendFeedbackReminders] no email on file for user:", userId);
       }
     }
   });
