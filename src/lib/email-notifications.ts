@@ -87,3 +87,37 @@ export const notifyTicketAssigned = createServerFn({ method: "POST" })
 
     await sendEmail(assignee.email, `Ticket ${ticket.ticket_no} assigned to you`, html);
   });
+
+// Fires the moment MIS marks a ticket "Awaiting Customer Feedback": the
+// employee gets an email right away, not just after the 1hr reminder.
+export const notifyAwaitingFeedback = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator(ticketIdSchema)
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const { data: ticket } = await supabaseAdmin
+      .from("tickets")
+      .select("ticket_no, title, user_id")
+      .eq("id", data.ticketId)
+      .maybeSingle();
+    if (!ticket) return;
+
+    const { data: requester } = await supabaseAdmin
+      .from("profiles")
+      .select("email")
+      .eq("id", ticket.user_id)
+      .maybeSingle();
+    if (!requester?.email) return;
+
+    const link = `${APP_URL}/tickets/${data.ticketId}`;
+    const html = emailShell(
+      `Ticket ${ticket.ticket_no} needs your feedback`,
+      `<p style="margin:0 0 8px;">MIS believes this issue is resolved and is waiting for your confirmation.</p>
+       <p style="margin:4px 0;"><strong>Title:</strong> ${ticket.title}</p>
+       <p style="margin:12px 0 0;">Please confirm whether the issue is fixed, or let us know it's still not working.</p>`,
+      link,
+    );
+
+    await sendEmail(requester.email, `Ticket ${ticket.ticket_no} needs your feedback`, html);
+  });

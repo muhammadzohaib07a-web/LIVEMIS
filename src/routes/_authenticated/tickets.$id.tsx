@@ -62,7 +62,7 @@ import {
   TICKET_STATUS_LABELS,
 } from "@/lib/ticket-status";
 import { mentionOptionsForRole } from "@/lib/mentions";
-import { notifyTicketAssigned } from "@/lib/email-notifications";
+import { notifyAwaitingFeedback, notifyTicketAssigned } from "@/lib/email-notifications";
 import { METADATA_FIELD_LABELS } from "@/lib/ticket-dynamic-fields";
 import { APP_TITLE } from "@/lib/app-meta";
 import { burstConfetti } from "@/lib/confetti";
@@ -756,6 +756,11 @@ function TicketDetail() {
     if (error) return toast.error(error.message);
     setTicket((t) => (t ? { ...t, status: s } : t));
     if (s === "closed" || s === "resolved") burstConfetti();
+    if (s === "awaiting_feedback") {
+      void notifyAwaitingFeedback({ data: { ticketId: id } }).catch((notifyError) =>
+        console.error("Failed to send awaiting-feedback email:", notifyError),
+      );
+    }
     toast.success(`Marked ${statusMeta[s].label}`);
   };
 
