@@ -1,10 +1,40 @@
--- Admin (MIS Head) previously only got notified about brand-new tickets and
--- employee feedback on *unassigned* tickets. Once a ticket had an agent, the
--- admin stopped hearing about it entirely — no notification on status
--- changes, replies, or assignments the admin didn't personally make. This
--- makes admin a notification recipient on every ticket event, in addition
--- to whoever already got notified, without double-notifying the same admin
--- twice for one event or notifying an admin about their own action.
+-- Combined notification upgrade (single file, run once):
+-- 1) Every notification title now says WHO did it (actor's real name),
+--    instead of generic "MIS changed status" / "New employee reply".
+-- 2) Admin (MIS Head) now gets notified of *every* ticket event — status
+--    changes, replies, closes, assignments — not just brand-new tickets and
+--    feedback on unassigned ones. No duplicate notifications for the same
+--    event, and admins never get notified about their own actions.
+
+CREATE OR REPLACE FUNCTION public.notify_mis_on_new_ticket()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  reporter_name text;
+BEGIN
+  SELECT COALESCE(full_name, email, 'An employee') INTO reporter_name
+  FROM public.profiles WHERE id = NEW.user_id;
+
+  INSERT INTO public.notifications (user_id, title, body, link)
+  SELECT DISTINCT
+    ur.user_id,
+    CASE
+      WHEN NEW.parent_ticket_id IS NOT NULL
+        THEN 'Follow-up ' || NEW.ticket_no || ' from ' || reporter_name
+      ELSE 'New ticket ' || NEW.ticket_no || ' from ' || reporter_name
+    END,
+    COALESCE(NEW.follow_up_reason, NEW.title),
+    '/tickets/' || NEW.id
+  FROM public.user_roles ur
+  WHERE ur.role = 'admin'
+    AND ur.user_id <> NEW.user_id;
+
+  RETURN NEW;
+END;
+$$;
 
 CREATE OR REPLACE FUNCTION public.notify_employee_on_ticket_update()
 RETURNS trigger
