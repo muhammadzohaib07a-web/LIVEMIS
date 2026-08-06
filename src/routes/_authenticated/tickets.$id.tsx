@@ -50,11 +50,15 @@ import {
 import { getCategoryLabel } from "@/lib/ticket-categories";
 import {
   formatAssignmentMessage,
+  formatDuration,
   formatStatusChangeMessage,
+  getSlaState,
   isAssignmentMessage,
   isStatusChangeMessage,
   MIS_STATUS_TRANSITIONS,
   normalizedTicketStatus,
+  SLA_HOURS_BY_PRIORITY,
+  SLA_TONE_STYLES,
   TICKET_STATUS_LABELS,
 } from "@/lib/ticket-status";
 import { mentionOptionsForRole } from "@/lib/mentions";
@@ -949,6 +953,7 @@ function TicketDetail() {
 
   const sm = statusMeta[ticket.status];
   const StatusIcon = sm.icon;
+  const slaState = getSlaState(ticket);
   const nextStatuses = MIS_STATUS_TRANSITIONS[ticket.status].filter(
     (status) => (status !== "closed" && status !== "canceled") || role === "admin",
   );
@@ -1001,6 +1006,19 @@ function TicketDetail() {
             >
               <StatusIcon className="h-3.5 w-3.5" /> Current: {sm.label}
             </div>
+            {slaState && (
+              <div
+                className={`mt-3 rounded-lg border px-3 py-2 text-xs font-semibold ${SLA_TONE_STYLES[slaState.tone]}`}
+              >
+                <div className="flex items-center gap-1.5">
+                  <Hourglass className="h-3.5 w-3.5" /> {slaState.label}
+                </div>
+                <p className="mt-1 text-[10px] font-normal normal-case text-muted-foreground">
+                  Resolution target: {SLA_HOURS_BY_PRIORITY[ticket.priority]}h from open (
+                  {ticket.priority} priority)
+                </p>
+              </div>
+            )}
             {normalizedTicketStatus(ticket.status) === "closed" && (
               <p className="mt-2 text-[10px] text-muted-foreground">
                 Closed on {new Date(ticket.closed_at ?? ticket.updated_at).toLocaleString()}
@@ -1167,6 +1185,10 @@ function TicketDetail() {
               <p className="mt-1 text-sm text-muted-foreground">
                 Confirm the solution for the MIS Head, or return the ticket to the assigned agent.
                 Only the MIS Head can perform the final close.
+              </p>
+              <p className="mt-1 text-xs font-medium text-warning">
+                Waiting {formatDuration(Date.now() - new Date(ticket.updated_at).getTime())} for
+                your response
               </p>
               <div className="mt-4 flex flex-wrap gap-2">
                 <Button
