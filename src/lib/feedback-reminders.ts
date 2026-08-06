@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { sendEmail, emailShell } from "@/lib/email-notifications";
+import { emailShell, sendEmail } from "@/lib/mailer.server";
 
 const APP_URL = process.env.APP_URL ?? "https://livemis-utxn.vercel.app";
 const REMINDER_AFTER_MS = 60 * 60 * 1000;

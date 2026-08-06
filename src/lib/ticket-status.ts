@@ -96,6 +96,8 @@ export const SLA_TONE_STYLES: Record<SlaTone, string> = {
   muted: "bg-muted/40 text-muted-foreground border-border",
 };
 
+// Never throws: a bad/unexpected ticket shape should just hide the badge,
+// not take down the whole ticket page.
 export function getSlaState(ticket: {
   created_at: string;
   priority: TicketPriority;
@@ -103,26 +105,34 @@ export function getSlaState(ticket: {
   closed_at: string | null;
   updated_at: string;
 }): SlaState | null {
-  if (ticket.status === "canceled") return null;
+  try {
+    if (ticket.status === "canceled") return null;
 
-  const totalMs = SLA_HOURS_BY_PRIORITY[ticket.priority] * 60 * 60 * 1000;
-  const dueAt = getSlaDueDate(ticket.created_at, ticket.priority);
+    const hours = SLA_HOURS_BY_PRIORITY[ticket.priority];
+    if (!hours) return null;
+    const totalMs = hours * 60 * 60 * 1000;
+    const dueAt = getSlaDueDate(ticket.created_at, ticket.priority);
+    if (Number.isNaN(dueAt.getTime())) return null;
 
-  if (normalizedTicketStatus(ticket.status) === "closed") {
-    const closedAt = new Date(ticket.closed_at ?? ticket.updated_at).getTime();
-    const lateMs = closedAt - dueAt.getTime();
-    return lateMs > 0
-      ? { dueAt, tone: "warning", label: `Closed ${formatDuration(lateMs)} late` }
-      : { dueAt, tone: "success", label: "Closed on time" };
+    if (normalizedTicketStatus(ticket.status) === "closed") {
+      const closedAtMs = new Date(ticket.closed_at ?? ticket.updated_at).getTime();
+      if (Number.isNaN(closedAtMs)) return null;
+      const lateMs = closedAtMs - dueAt.getTime();
+      return lateMs > 0
+        ? { dueAt, tone: "warning", label: `Closed ${formatDuration(lateMs)} late` }
+        : { dueAt, tone: "success", label: "Closed on time" };
+    }
+
+    const remaining = dueAt.getTime() - Date.now();
+    if (remaining <= 0) {
+      return { dueAt, tone: "destructive", label: `Overdue by ${formatDuration(-remaining)}` };
+    }
+    return {
+      dueAt,
+      tone: remaining < totalMs * 0.25 ? "warning" : "muted",
+      label: `Due in ${formatDuration(remaining)}`,
+    };
+  } catch {
+    return null;
   }
-
-  const remaining = dueAt.getTime() - Date.now();
-  if (remaining <= 0) {
-    return { dueAt, tone: "destructive", label: `Overdue by ${formatDuration(-remaining)}` };
-  }
-  return {
-    dueAt,
-    tone: remaining < totalMs * 0.25 ? "warning" : "muted",
-    label: `Due in ${formatDuration(remaining)}`,
-  };
 }
