@@ -814,13 +814,13 @@ function Dashboard() {
                       {isMisStaff(role) && (
                         <>
                           {" · "}
-                          <span className="font-semibold text-primary">
+                          <span className="text-sm font-bold text-foreground">
                             {requesters[t.user_id]?.full_name ??
                               requesters[t.user_id]?.email ??
                               "Unknown employee"}
                           </span>
                           {" · "}
-                          <span className="font-semibold text-primary">
+                          <span className="text-sm font-bold text-foreground">
                             {requesters[t.user_id]?.department ?? "Dept not set"}
                           </span>
                         </>

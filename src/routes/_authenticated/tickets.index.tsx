@@ -405,13 +405,13 @@ function TicketsList() {
                     <p className="mt-0.5 text-xs text-muted-foreground">
                       {isMisStaff(role) && (
                         <>
-                          <span className="font-semibold text-primary">
+                          <span className="text-sm font-bold text-foreground">
                             {requesters[t.user_id]?.full_name ??
                               requesters[t.user_id]?.email ??
                               "Employee"}
                           </span>
                           {" · "}
-                          <span className="font-semibold text-primary">
+                          <span className="text-sm font-bold text-foreground">
                             {requesters[t.user_id]?.department ?? "Department not set"}
                           </span>
                           {" · "}
