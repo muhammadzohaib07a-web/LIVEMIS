@@ -810,9 +810,22 @@ function Dashboard() {
                     </div>
                     <p className="mt-1 truncate text-sm font-medium">{t.title}</p>
                     <p className="text-xs text-muted-foreground">
-                      {t.category} ·{" "}
-                      {isMisStaff(role) &&
-                        `${requesters[t.user_id]?.full_name ?? requesters[t.user_id]?.email ?? "Unknown employee"} · ${requesters[t.user_id]?.department ?? "Dept not set"} · `}
+                      {t.category}
+                      {isMisStaff(role) && (
+                        <>
+                          {" · "}
+                          <span className="font-semibold text-primary">
+                            {requesters[t.user_id]?.full_name ??
+                              requesters[t.user_id]?.email ??
+                              "Unknown employee"}
+                          </span>
+                          {" · "}
+                          <span className="font-semibold text-primary">
+                            {requesters[t.user_id]?.department ?? "Dept not set"}
+                          </span>
+                        </>
+                      )}
+                      {" · "}
                       {normalizedTicketStatus(t.status) === "closed" && t.closed_at
                         ? `Closed ${new Date(t.closed_at).toLocaleString()}`
                         : `Updated ${new Date(t.updated_at).toLocaleString()}`}
