@@ -86,6 +86,32 @@ type Profile = {
 const statusStyles = TICKET_STATUS_STYLES;
 const statusLabel = TICKET_STATUS_LABELS;
 
+const PRIORITY_ORDER = ["urgent", "high", "medium", "low"] as const;
+const PRIORITY_LABELS: Record<string, string> = {
+  urgent: "Urgent",
+  high: "High",
+  medium: "Medium",
+  low: "Low",
+};
+const PRIORITY_DOT: Record<string, string> = {
+  urgent: "bg-destructive",
+  high: "bg-warning",
+  medium: "bg-primary",
+  low: "bg-muted-foreground",
+};
+const PRIORITY_ACTIVE_TONE: Record<string, string> = {
+  urgent: "border-destructive/40 bg-destructive/10 text-destructive",
+  high: "border-warning/40 bg-warning/10 text-warning",
+  medium: "border-primary/40 bg-primary/10 text-primary",
+  low: "border-border bg-muted/30 text-muted-foreground",
+};
+const PRIORITY_BORDER: Record<string, string> = {
+  urgent: "border-l-destructive",
+  high: "border-l-warning",
+  medium: "border-l-primary",
+  low: "border-l-border",
+};
+
 function ticketsVisibleTo(role: AppRole, userId: string, tickets: TicketRow[]) {
   if (role === "admin") return tickets;
   if (role === "agent") return tickets.filter((ticket) => ticket.assignee_id === userId);
@@ -329,6 +355,15 @@ function Dashboard() {
 
   const [activeStatus, setActiveStatus] = useState<string | null>(null);
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
+  const [activePriority, setActivePriority] = useState<string | null>(null);
+
+  const priorityCounts = tickets.reduce(
+    (acc, t) => {
+      acc[t.priority] = (acc[t.priority] ?? 0) + 1;
+      return acc;
+    },
+    {} as Record<string, number>,
+  );
 
   const stats = [
     {
@@ -375,15 +410,16 @@ function Dashboard() {
     },
   ];
 
-  // Interlinked filter: charts + list all respect activeStatus/activeCategory
+  // Interlinked filter: charts + list all respect activeStatus/activeCategory/activePriority
   const filtered = useMemo(
     () =>
       tickets.filter(
         (t) =>
           (!activeStatus || normalizedTicketStatus(t.status) === activeStatus) &&
-          (!activeCategory || t.category === activeCategory),
+          (!activeCategory || t.category === activeCategory) &&
+          (!activePriority || t.priority === activePriority),
       ),
-    [tickets, activeStatus, activeCategory],
+    [tickets, activeStatus, activeCategory, activePriority],
   );
 
   const statusData = useMemo(() => {
@@ -424,7 +460,7 @@ function Dashboard() {
     canceled: "var(--destructive)",
   };
 
-  const isFiltering = Boolean(activeStatus || activeCategory);
+  const isFiltering = Boolean(activeStatus || activeCategory || activePriority);
   const recent = isFiltering ? filtered : filtered.slice(0, 5);
   const scopeLabel =
     role === "admin"
@@ -584,7 +620,30 @@ function Dashboard() {
         })}
       </div>
 
-      {(activeStatus || activeCategory) && (
+      {isMisStaff(role) && (
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          {PRIORITY_ORDER.map((p) => {
+            const isActive = activePriority === p;
+            return (
+              <button
+                key={p}
+                type="button"
+                onClick={() => setActivePriority(isActive ? null : p)}
+                className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold transition ${
+                  isActive
+                    ? PRIORITY_ACTIVE_TONE[p]
+                    : "border-border/60 bg-surface/60 text-muted-foreground hover:border-border"
+                }`}
+              >
+                <span className={`h-1.5 w-1.5 rounded-full ${PRIORITY_DOT[p]}`} />
+                {PRIORITY_LABELS[p]} ({loadingTickets ? "—" : (priorityCounts[p] ?? 0)})
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {(activeStatus || activeCategory || activePriority) && (
         <div className="mt-4 flex flex-wrap items-center gap-2 text-xs">
           <span className="text-muted-foreground">Filtering:</span>
           {activeStatus && (
@@ -593,6 +652,14 @@ function Dashboard() {
               className="rounded-full border border-primary/40 bg-primary/10 px-3 py-1 text-primary hover:bg-primary/20"
             >
               status: {activeStatus} ✕
+            </button>
+          )}
+          {activePriority && (
+            <button
+              onClick={() => setActivePriority(null)}
+              className="rounded-full border border-primary/40 bg-primary/10 px-3 py-1 text-primary hover:bg-primary/20"
+            >
+              priority: {activePriority} ✕
             </button>
           )}
           {activeCategory && (
@@ -736,7 +803,7 @@ function Dashboard() {
                   key={t.id}
                   to="/tickets/$id"
                   params={{ id: t.id }}
-                  className="flex items-center justify-between gap-4 py-4 transition hover:opacity-80"
+                  className={`flex items-center justify-between gap-4 border-l-4 py-4 pl-3 transition hover:opacity-80 ${PRIORITY_BORDER[t.priority]}`}
                 >
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">

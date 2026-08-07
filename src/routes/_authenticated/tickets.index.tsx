@@ -65,6 +65,12 @@ const priorityDot: Record<string, string> = {
   high: "bg-warning",
   urgent: "bg-destructive",
 };
+const priorityBorder: Record<string, string> = {
+  low: "border-l-border",
+  medium: "border-l-primary",
+  high: "border-l-warning",
+  urgent: "border-l-destructive",
+};
 
 function TicketsList() {
   const [tickets, setTickets] = useState<Ticket[]>([]);
@@ -376,7 +382,7 @@ function TicketsList() {
                 <Link
                   to="/tickets/$id"
                   params={{ id: t.id }}
-                  className="flex items-center justify-between gap-4 px-5 py-4 transition hover:bg-surface/60"
+                  className={`flex items-center justify-between gap-4 border-l-4 px-5 py-4 transition hover:bg-surface/60 ${priorityBorder[t.priority]}`}
                 >
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
