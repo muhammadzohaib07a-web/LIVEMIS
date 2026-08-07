@@ -105,12 +105,6 @@ const PRIORITY_ACTIVE_TONE: Record<string, string> = {
   medium: "border-primary/40 bg-primary/10 text-primary",
   low: "border-border bg-muted/30 text-muted-foreground",
 };
-const PRIORITY_BORDER: Record<string, string> = {
-  urgent: "border-l-destructive",
-  high: "border-l-warning",
-  medium: "border-l-primary",
-  low: "border-l-border",
-};
 
 function ticketsVisibleTo(role: AppRole, userId: string, tickets: TicketRow[]) {
   if (role === "admin") return tickets;
@@ -803,7 +797,7 @@ function Dashboard() {
                   key={t.id}
                   to="/tickets/$id"
                   params={{ id: t.id }}
-                  className={`flex items-center justify-between gap-4 border-l-4 py-4 pl-3 transition hover:opacity-80 ${PRIORITY_BORDER[t.priority]}`}
+                  className="flex items-center justify-between gap-4 py-4 transition hover:opacity-80"
                 >
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
