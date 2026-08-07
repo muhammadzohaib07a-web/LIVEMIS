@@ -233,10 +233,10 @@ export function AdminAssignmentSummary({ tickets, people, agents, loading }: Pro
                       </Link>
                     </td>
                     <td className="px-4 py-3.5">
-                      <p className="text-sm font-bold text-foreground">
+                      <p className="text-sm font-bold text-muted-foreground">
                         {displayPerson(requester, "Unknown employee")}
                       </p>
-                      <p className="text-sm font-bold text-foreground/80">
+                      <p className="text-sm font-bold text-muted-foreground/80">
                         {requester?.department ?? "Department not set"}
                       </p>
                     </td>
