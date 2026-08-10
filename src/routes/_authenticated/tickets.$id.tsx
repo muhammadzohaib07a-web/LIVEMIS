@@ -62,7 +62,7 @@ import {
   TICKET_STATUS_LABELS,
 } from "@/lib/ticket-status";
 import { mentionOptionsForRole } from "@/lib/mentions";
-import { notifyAwaitingFeedback, notifyTicketAssigned } from "@/lib/email-notifications";
+import { notifyAwaitingFeedback, notifyNewMessage, notifyTicketAssigned } from "@/lib/email-notifications";
 import { METADATA_FIELD_LABELS } from "@/lib/ticket-dynamic-fields";
 import { APP_TITLE } from "@/lib/app-meta";
 import { burstConfetti } from "@/lib/confetti";
@@ -671,7 +671,11 @@ function TicketDetail() {
       toast.error(error.message);
       setBody(text);
       setPendingFiles(filesToSend);
+      return;
     }
+    void notifyNewMessage({ data: { ticketId: id } }).catch((notifyError) =>
+      console.error("Failed to send reply push notification", notifyError),
+    );
   };
 
   const confirmIssueFixed = async () => {
@@ -711,6 +715,9 @@ function TicketDetail() {
       toast.error(error.message);
       return;
     }
+    void notifyNewMessage({ data: { ticketId: id } }).catch((notifyError) =>
+      console.error("Failed to send reply push notification", notifyError),
+    );
     toast.success("Confirmation sent to the MIS Head for final closure");
   };
 

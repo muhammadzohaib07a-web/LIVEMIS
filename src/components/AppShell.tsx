@@ -7,6 +7,8 @@ import {
   PlusCircle,
   BookOpen,
   Bell,
+  BellRing,
+  BellOff,
   LogOut,
   Menu,
   X,
@@ -25,6 +27,12 @@ import { disablePreviewMode, isPreviewMode } from "@/lib/preview-auth";
 import { getCurrentUserContext, type AppRole } from "@/lib/current-user";
 import { applyTheme, getPreferredTheme, type AppTheme } from "@/lib/theme";
 import { getPreviewNotifications, PREVIEW_NOTIFICATIONS_KEY } from "@/lib/preview-data";
+import {
+  disablePushNotifications,
+  enablePushNotifications,
+  getPushSubscriptionState,
+  isPushSupported,
+} from "@/lib/push-client";
 
 type Profile = {
   full_name: string | null;
@@ -60,7 +68,37 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
   const [role, setRole] = useState<AppRole>("employee");
   const [theme, setTheme] = useState<AppTheme>("light");
+  const [pushState, setPushState] = useState<"subscribed" | "unsubscribed" | "denied" | "unsupported">(
+    "unsupported",
+  );
+  const [pushBusy, setPushBusy] = useState(false);
   const userIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (isPreviewMode() || !isPushSupported()) return;
+    void getPushSubscriptionState().then(setPushState);
+  }, []);
+
+  const togglePush = async () => {
+    if (pushBusy) return;
+    setPushBusy(true);
+    try {
+      if (pushState === "subscribed") {
+        await disablePushNotifications();
+        setPushState("unsubscribed");
+        toast.success("Push notifications turned off");
+      } else {
+        await enablePushNotifications();
+        setPushState("subscribed");
+        toast.success("Push notifications enabled — you'll get alerts even when this tab is closed");
+      }
+    } catch (error) {
+      setPushState(Notification.permission === "denied" ? "denied" : "unsubscribed");
+      toast.error(error instanceof Error ? error.message : "Couldn't update push notifications");
+    } finally {
+      setPushBusy(false);
+    }
+  };
 
   useEffect(() => {
     let notificationChannel: ReturnType<typeof supabase.channel> | BroadcastChannel | null = null;
@@ -203,6 +241,28 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 </span>
               )}
             </Link>
+            {pushState !== "unsupported" && (
+              <button
+                type="button"
+                onClick={togglePush}
+                disabled={pushBusy || pushState === "denied"}
+                className="rounded-lg border border-border/60 bg-surface/60 p-2 text-muted-foreground transition hover:border-primary/40 hover:bg-primary/10 hover:text-primary disabled:cursor-not-allowed disabled:opacity-50"
+                aria-label={pushState === "subscribed" ? "Turn off push notifications" : "Enable push notifications"}
+                title={
+                  pushState === "denied"
+                    ? "Notifications are blocked in your browser settings"
+                    : pushState === "subscribed"
+                      ? "Push notifications on — click to turn off"
+                      : "Get notified even when this tab is closed"
+                }
+              >
+                {pushState === "subscribed" ? (
+                  <BellRing className="h-4 w-4 text-primary" />
+                ) : (
+                  <BellOff className="h-4 w-4" />
+                )}
+              </button>
+            )}
             <button
               type="button"
               onClick={toggleTheme}
