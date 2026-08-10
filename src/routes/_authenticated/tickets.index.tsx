@@ -72,6 +72,7 @@ function TicketsList() {
   const [status, setStatus] = useState<Status>("all");
   const [queueFilter, setQueueFilter] = useState<QueueFilter>("all");
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>("all");
+  const [departmentFilter, setDepartmentFilter] = useState<string>("all");
   const [categories, setCategories] = useState<TicketCategoryOption[]>(MIS_TICKET_CATEGORIES);
   const [role, setRole] = useState<AppRole>("employee");
   const [me, setMe] = useState<string | null>(null);
@@ -241,9 +242,21 @@ function TicketsList() {
         )
       : tickets;
 
+  // Department options are derived from whichever requesters we've already
+  // loaded (MIS staff only — see the fetch above), not a separate query.
+  const departmentOptions = Array.from(
+    new Set(
+      Object.values(requesters)
+        .map((r) => r.department)
+        .filter((d): d is string => Boolean(d)),
+    ),
+  ).sort();
+
   const filtered = agentScoped.filter((t) => {
     if (status !== "all" && normalizedTicketStatus(t.status) !== status) return false;
     if (categoryFilter !== "all" && t.category !== categoryFilter) return false;
+    if (departmentFilter !== "all" && requesters[t.user_id]?.department !== departmentFilter)
+      return false;
     if (queueFilter === "unassigned" && t.assignee_id) return false;
     if (queueFilter === "assigned" && !t.assignee_id) return false;
     if (q && !`${t.ticket_no} ${t.title}`.toLowerCase().includes(q.toLowerCase())) return false;
@@ -406,6 +419,21 @@ function TicketsList() {
             ))}
           </SelectContent>
         </Select>
+        {isMisStaff(role) && departmentOptions.length > 0 && (
+          <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
+            <SelectTrigger className="sm:w-56">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All departments</SelectItem>
+              {departmentOptions.map((department) => (
+                <SelectItem key={department} value={department}>
+                  {department}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
         {role === "admin" && (
           <Select value={queueFilter} onValueChange={(v) => setQueueFilter(v as QueueFilter)}>
             <SelectTrigger className="sm:w-48">

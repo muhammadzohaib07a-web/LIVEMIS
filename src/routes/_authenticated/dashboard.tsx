@@ -125,6 +125,7 @@ function Dashboard() {
   const [loadingTickets, setLoadingTickets] = useState(true);
   const [newAssignments, setNewAssignments] = useState<NotificationRow[]>([]);
   const [requesters, setRequesters] = useState<Record<string, Requester>>({});
+  const [me, setMe] = useState<string | null>(null);
 
   const dismissAssignment = (notificationId: string) => {
     setNewAssignments((current) => current.filter((n) => n.id !== notificationId));
@@ -147,6 +148,7 @@ function Dashboard() {
         return;
       }
       setRole(context.role);
+      setMe(context.id);
       setProfile({
         full_name: context.fullName,
         employee_id: isPreviewMode() ? "DEMO-001" : null,
@@ -346,7 +348,20 @@ function Dashboard() {
     },
   }[role];
 
-  const counts = tickets.reduce(
+  // Agents both work assigned tickets and can report their own — the stat
+  // cards below are the agent's work queue, so they're scoped to tickets
+  // actually assigned to this agent. Self-reported tickets are surfaced
+  // separately via the "Total Reported" card instead of inflating these.
+  // Memoized so downstream useMemos (filtered/statusData) get a stable
+  // reference instead of recomputing every render.
+  const assignedTickets = useMemo(
+    () => (role === "agent" ? tickets.filter((t) => t.assignee_id === me) : tickets),
+    [role, tickets, me],
+  );
+  const reportedByMeCount =
+    role === "agent" ? tickets.filter((t) => t.user_id === me).length : 0;
+
+  const counts = assignedTickets.reduce(
     (acc, t) => {
       acc[t.status] = (acc[t.status] ?? 0) + 1;
       return acc;
@@ -358,7 +373,7 @@ function Dashboard() {
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [activePriority, setActivePriority] = useState<string | null>(null);
 
-  const priorityCounts = tickets.reduce(
+  const priorityCounts = assignedTickets.reduce(
     (acc, t) => {
       acc[t.priority] = (acc[t.priority] ?? 0) + 1;
       return acc;
@@ -369,7 +384,7 @@ function Dashboard() {
   const totalStat = {
     key: null as string | null,
     label: dashboardCopy.statLabels.total,
-    value: tickets.length,
+    value: assignedTickets.length,
     icon: TrendingUp,
     tone: "text-accent",
   };
@@ -418,23 +433,23 @@ function Dashboard() {
   // Interlinked filter: charts + list all respect activeStatus/activeCategory/activePriority
   const filtered = useMemo(
     () =>
-      tickets.filter(
+      assignedTickets.filter(
         (t) =>
           (!activeStatus || normalizedTicketStatus(t.status) === activeStatus) &&
           (!activeCategory || t.category === activeCategory) &&
           (!activePriority || t.priority === activePriority),
       ),
-    [tickets, activeStatus, activeCategory, activePriority],
+    [assignedTickets, activeStatus, activeCategory, activePriority],
   );
 
   const statusData = useMemo(() => {
     const map: Record<string, number> = {};
-    tickets.forEach((t) => {
+    assignedTickets.forEach((t) => {
       const status = normalizedTicketStatus(t.status);
       map[status] = (map[status] ?? 0) + 1;
     });
     return Object.entries(map).map(([name, value]) => ({ name, value }));
-  }, [tickets]);
+  }, [assignedTickets]);
 
   const categoryData = useMemo(() => {
     const map: Record<string, number> = {};
@@ -623,6 +638,25 @@ function Dashboard() {
             </button>
           );
         })}
+        {role === "agent" && (
+          <Link
+            to="/tickets"
+            className="rounded-2xl border border-border/60 bg-surface/60 p-4 text-left backdrop-blur transition hover:border-border"
+          >
+            <div className="flex items-center justify-between">
+              <p className="text-xs uppercase tracking-widest text-muted-foreground">
+                Total Reported
+              </p>
+              <PlusCircle className="h-4 w-4 text-accent" />
+            </div>
+            <p className="mt-3 text-3xl font-bold">
+              {loadingTickets ? "—" : reportedByMeCount}
+            </p>
+            <p className="mt-1 text-[10px] text-muted-foreground">
+              {loadingTickets ? "Loading…" : "Tickets you reported"}
+            </p>
+          </Link>
+        )}
       </div>
 
       {isMisStaff(role) && (
@@ -678,7 +712,7 @@ function Dashboard() {
         </div>
       )}
 
-      {tickets.length > 0 && (
+      {assignedTickets.length > 0 && (
         <div className="mt-6 grid gap-6 lg:grid-cols-3">
           <section className="rounded-2xl border border-border/60 bg-surface/40 p-5 backdrop-blur">
             <h3 className="mb-3 text-sm font-semibold">{dashboardCopy.statusChart}</h3>
