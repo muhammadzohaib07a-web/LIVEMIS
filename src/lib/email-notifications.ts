@@ -154,14 +154,21 @@ export const notifyAwaitingFeedback = createServerFn({ method: "POST" })
     ]);
   });
 
-// Fires on every chat reply: push-only (no email for this one), mirrors the
-// same routing the notify_on_ticket_message DB trigger uses for the in-app
-// bell — reporter's own message goes to the assignee (or every admin if
-// still unassigned); MIS staff's reply goes to the reporter. Admins always
-// get a copy either way, since the Head oversees every ticket.
-export const notifyNewMessage = createServerFn({ method: "POST" })
+// Fires on every chat reply AND every status change (e.g. marked Answered):
+// push-only (no email for this one), mirrors the same routing the
+// notify_on_ticket_message DB trigger uses for the in-app bell — the
+// reporter's own activity goes to the assignee (or every admin if still
+// unassigned); MIS staff's activity goes to the reporter. Admins always get
+// a copy either way, since the Head oversees every ticket.
+export const notifyTicketActivity = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .validator(z.object({ ticketId: z.string().uuid() }))
+  .validator(
+    z.object({
+      ticketId: z.string().uuid(),
+      // Present only for status changes; a plain chat reply omits it.
+      statusLabel: z.string().optional(),
+    }),
+  )
   .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
@@ -186,13 +193,14 @@ export const notifyNewMessage = createServerFn({ method: "POST" })
     for (const row of adminRoles ?? []) recipients.add(row.user_id);
     recipients.delete(context.userId);
 
+    const title = data.statusLabel
+      ? `Ticket ${ticket.ticket_no} marked ${data.statusLabel}`
+      : `${senderName} replied on ${ticket.ticket_no}`;
+    const body = data.statusLabel ? `${senderName} updated the status.` : "Tap to view the conversation.";
+
     await Promise.all(
       [...recipients].map((userId) =>
-        sendPushToUser(userId, {
-          title: `${senderName} replied on ${ticket.ticket_no}`,
-          body: "Tap to view the conversation.",
-          url: `/tickets/${data.ticketId}`,
-        }),
+        sendPushToUser(userId, { title, body, url: `/tickets/${data.ticketId}` }),
       ),
     );
   });

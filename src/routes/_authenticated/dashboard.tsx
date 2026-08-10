@@ -273,9 +273,16 @@ function Dashboard() {
     };
   }, []);
 
+  // An agent-reported ticket is owned by the agent just like an employee's is
+  // owned by the employee — the reporter is the one who owes a response here,
+  // regardless of role. Scoped to t.user_id === me so an agent's ASSIGNED
+  // tickets (someone else's feedback to give) never show up in their own list.
   const feedbackReminders = useMemo(
-    () => (role === "employee" ? tickets.filter((t) => t.status === "awaiting_feedback") : []),
-    [tickets, role],
+    () =>
+      role === "employee" || role === "agent"
+        ? tickets.filter((t) => t.status === "awaiting_feedback" && t.user_id === me)
+        : [],
+    [tickets, role, me],
   );
 
   // The server only actually emails/re-notifies for tickets that have been
@@ -285,7 +292,8 @@ function Dashboard() {
   // instead of once per Dashboard mount.
   const remindersSentRef = useRef(false);
   useEffect(() => {
-    if (role !== "employee" || isPreviewMode() || remindersSentRef.current) return;
+    if ((role !== "employee" && role !== "agent") || isPreviewMode() || remindersSentRef.current)
+      return;
     if (feedbackReminders.length === 0) return;
     const lastSent = Number(sessionStorage.getItem(FEEDBACK_REMINDER_THROTTLE_KEY) ?? 0);
     if (Date.now() - lastSent < FEEDBACK_REMINDER_THROTTLE_MS) return;
@@ -573,7 +581,7 @@ function Dashboard() {
         </div>
       )}
 
-      {role === "employee" && feedbackReminders.length > 0 && (
+      {(role === "employee" || role === "agent") && feedbackReminders.length > 0 && (
         <div className="mb-6 rounded-2xl border border-warning/40 bg-warning/10 p-5">
           <div className="flex items-start gap-3">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-warning/20 text-warning">

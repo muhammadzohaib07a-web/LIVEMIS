@@ -62,7 +62,11 @@ import {
   TICKET_STATUS_LABELS,
 } from "@/lib/ticket-status";
 import { mentionOptionsForRole } from "@/lib/mentions";
-import { notifyAwaitingFeedback, notifyNewMessage, notifyTicketAssigned } from "@/lib/email-notifications";
+import {
+  notifyAwaitingFeedback,
+  notifyTicketActivity,
+  notifyTicketAssigned,
+} from "@/lib/email-notifications";
 import { METADATA_FIELD_LABELS } from "@/lib/ticket-dynamic-fields";
 import { APP_TITLE } from "@/lib/app-meta";
 import { burstConfetti } from "@/lib/confetti";
@@ -673,7 +677,7 @@ function TicketDetail() {
       setPendingFiles(filesToSend);
       return;
     }
-    void notifyNewMessage({ data: { ticketId: id } }).catch((notifyError) =>
+    void notifyTicketActivity({ data: { ticketId: id } }).catch((notifyError) =>
       console.error("Failed to send reply push notification", notifyError),
     );
   };
@@ -682,7 +686,7 @@ function TicketDetail() {
     if (
       !ticket ||
       !me ||
-      role !== "employee" ||
+      (role !== "employee" && role !== "agent") ||
       ticket.user_id !== me ||
       ticket.status !== "awaiting_feedback"
     )
@@ -715,7 +719,7 @@ function TicketDetail() {
       toast.error(error.message);
       return;
     }
-    void notifyNewMessage({ data: { ticketId: id } }).catch((notifyError) =>
+    void notifyTicketActivity({ data: { ticketId: id } }).catch((notifyError) =>
       console.error("Failed to send reply push notification", notifyError),
     );
     toast.success("Confirmation sent to the MIS Head for final closure");
@@ -724,7 +728,7 @@ function TicketDetail() {
   const updateStatus = async (s: Status) => {
     const canManage = role === "admin" || (role === "agent" && ticket?.assignee_id === me);
     const canGiveCustomerFeedback =
-      role === "employee" &&
+      (role === "employee" || role === "agent") &&
       ticket?.user_id === me &&
       ticket.status === "awaiting_feedback" &&
       (s === "closed" || s === "in_progress");
@@ -766,6 +770,15 @@ function TicketDetail() {
     if (s === "awaiting_feedback") {
       void notifyAwaitingFeedback({ data: { ticketId: id } }).catch((notifyError) =>
         console.error("Failed to send awaiting-feedback email:", notifyError),
+      );
+    } else {
+      // awaiting_feedback already gets its own dedicated push above — every
+      // other transition (e.g. marked Answered) still owes the other side a
+      // push, same as a chat reply would.
+      void notifyTicketActivity({
+        data: { ticketId: id, statusLabel: statusMeta[s].label },
+      }).catch((notifyError) =>
+        console.error("Failed to send status-change push notification", notifyError),
       );
     }
     toast.success(`Marked ${statusMeta[s].label}`);
@@ -971,7 +984,9 @@ function TicketDetail() {
   );
   const canManageStatus = role === "admin" || (role === "agent" && ticket.assignee_id === me);
   const canGiveFeedback =
-    role === "employee" && ticket.user_id === me && ticket.status === "awaiting_feedback";
+    (role === "employee" || role === "agent") &&
+    ticket.user_id === me &&
+    ticket.status === "awaiting_feedback";
   // Only count a confirmation sent during the *current* awaiting_feedback cycle: a ticket
   // can cycle through awaiting_feedback more than once, and ticket.updated_at is bumped
   // every time the tickets row changes (including the transition into this status), so a
