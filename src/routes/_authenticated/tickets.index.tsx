@@ -275,7 +275,7 @@ function TicketsList() {
                 : "My Tickets"}
           </h1>
         </div>
-        {!isMisStaff(role) && (
+        {role !== "admin" && (
           <Link
             to="/report"
             className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-primary px-5 py-3 text-sm font-semibold text-primary-foreground shadow-elegant transition hover:opacity-90"

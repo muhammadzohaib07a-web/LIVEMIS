@@ -839,7 +839,7 @@ function Dashboard() {
         </section>
 
         <aside className="space-y-4">
-          {role === "employee" && (
+          {role !== "admin" && (
             <QuickAction
               to="/report"
               icon={Ticket}

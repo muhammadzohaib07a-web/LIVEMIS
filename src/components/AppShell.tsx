@@ -22,7 +22,7 @@ import {
 import { BrandLogo } from "@/components/BrandLogo";
 import { toast } from "sonner";
 import { disablePreviewMode, isPreviewMode } from "@/lib/preview-auth";
-import { getCurrentUserContext, isMisStaff, type AppRole } from "@/lib/current-user";
+import { getCurrentUserContext, type AppRole } from "@/lib/current-user";
 import { applyTheme, getPreferredTheme, type AppTheme } from "@/lib/theme";
 import { getPreviewNotifications, PREVIEW_NOTIFICATIONS_KEY } from "@/lib/preview-data";
 
@@ -274,7 +274,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }) {
     const visibleNav = nav.filter((item) => {
       if (item.to === "/report" || item.to === "/report/wizard" || item.to === "/assistant")
-        return !isMisStaff(role);
+        return role !== "admin";
       if (item.to === "/assignments" || item.to === "/users" || item.to === "/settings")
         return role === "admin";
       return true;
