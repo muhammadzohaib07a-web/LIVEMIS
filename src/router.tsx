@@ -10,6 +10,10 @@ export const getRouter = () => {
     routeTree,
     context: { queryClient },
     scrollRestoration: true,
+    // Start fetching a route's code + loader data as soon as the user
+    // hovers/focuses its link, instead of waiting for the click — this is
+    // what makes tab/nav switching feel instant instead of a beat behind.
+    defaultPreload: "intent",
     defaultPreloadStaleTime: 0,
     defaultPendingComponent: () => (
       <div className="flex min-h-[50vh] items-center justify-center">

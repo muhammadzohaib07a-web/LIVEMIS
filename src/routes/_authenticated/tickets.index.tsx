@@ -35,7 +35,6 @@ import {
   TICKET_STATUS_STYLES,
 } from "@/lib/ticket-status";
 import { APP_TITLE } from "@/lib/app-meta";
-import { downloadExcel } from "@/lib/export-excel";
 
 type Ticket = Database["public"]["Tables"]["tickets"]["Row"];
 type Status = Database["public"]["Enums"]["ticket_status"] | "all";
@@ -255,6 +254,9 @@ function TicketsList() {
   const exportFiltered = async () => {
     setExporting(true);
     try {
+      // exceljs is a large library (~900KB) — load it only when Export is
+      // actually clicked instead of bundling it into every visit to this page.
+      const { downloadExcel } = await import("@/lib/export-excel");
       await downloadExcel(
         `mis-tickets-${new Date().toISOString().slice(0, 10)}.xlsx`,
         [
