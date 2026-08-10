@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { PlusCircle, Search, Loader2, ChevronRight, Inbox, Download } from "lucide-react";
@@ -77,6 +77,11 @@ function TicketsList() {
   const [role, setRole] = useState<AppRole>("employee");
   const [me, setMe] = useState<string | null>(null);
   const [requesters, setRequesters] = useState<Record<string, Requester>>({});
+  // The realtime subscription below is created once on mount, before the
+  // async context/role lookup resolves, so it can't close over role/me state
+  // directly without going stale — these refs give it a live read instead.
+  const roleRef = useRef<AppRole>("employee");
+  const meRef = useRef<string | null>(null);
 
   useEffect(() => {
     let previewTicketChannel: BroadcastChannel | null = null;
@@ -87,7 +92,10 @@ function TicketsList() {
       const canSeePreviewTicket = (ticket: Ticket) => {
         const previewRole = getPreviewRole();
         if (previewRole === "admin") return true;
-        if (previewRole === "agent") return ticket.assignee_id === "preview-agent-1";
+        if (previewRole === "agent")
+          return (
+            ticket.assignee_id === "preview-agent-1" || ticket.user_id === "preview-agent-1"
+          );
         return ticket.user_id === "preview-employee";
       };
       const refreshPreviewTickets = () => {
@@ -116,11 +124,18 @@ function TicketsList() {
       };
       window.addEventListener("storage", syncPreviewTickets);
     } else {
+      const canSeeTicket = (ticket: Ticket) => {
+        if (roleRef.current === "admin") return true;
+        if (roleRef.current === "agent")
+          return ticket.assignee_id === meRef.current || ticket.user_id === meRef.current;
+        return ticket.user_id === meRef.current;
+      };
       ticketChannel = supabase
         .channel("visible-ticket-list")
         .on("postgres_changes", { event: "*", schema: "public", table: "tickets" }, (payload) => {
           if (payload.eventType === "INSERT") {
             const inserted = payload.new as Ticket;
+            if (!canSeeTicket(inserted)) return;
             setTickets((current) =>
               current.some((ticket) => ticket.id === inserted.id)
                 ? current
@@ -128,9 +143,13 @@ function TicketsList() {
             );
           } else if (payload.eventType === "UPDATE") {
             const updated = payload.new as Ticket;
-            setTickets((current) =>
-              current.map((ticket) => (ticket.id === updated.id ? updated : ticket)),
-            );
+            setTickets((current) => {
+              const exists = current.some((ticket) => ticket.id === updated.id);
+              if (!exists) return canSeeTicket(updated) ? [updated, ...current] : current;
+              return canSeeTicket(updated)
+                ? current.map((ticket) => (ticket.id === updated.id ? updated : ticket))
+                : current.filter((ticket) => ticket.id !== updated.id);
+            });
           } else if (payload.eventType === "DELETE") {
             const deleted = payload.old as Pick<Ticket, "id">;
             setTickets((current) => current.filter((ticket) => ticket.id !== deleted.id));
@@ -151,23 +170,31 @@ function TicketsList() {
       }
       setRole(context.role);
       setMe(context.id);
+      roleRef.current = context.role;
+      meRef.current = context.id;
       if (isPreviewMode()) {
         const previewTickets = getCurrentPreviewTickets();
         setTickets(
           context.role === "admin"
             ? previewTickets
             : context.role === "agent"
-              ? previewTickets.filter((ticket) => ticket.assignee_id === context.id)
+              ? previewTickets.filter(
+                  (ticket) =>
+                    ticket.assignee_id === context.id || ticket.user_id === context.id,
+                )
               : previewTickets.filter((ticket) => ticket.user_id === context.id),
         );
         setRequesters(previewRequesters);
         setLoading(false);
         return;
       }
-      const { data } = await supabase
-        .from("tickets")
-        .select("*")
-        .order("created_at", { ascending: false });
+      let query = supabase.from("tickets").select("*").order("created_at", { ascending: false });
+      if (context.role === "agent") {
+        // Assigned to them, plus any ticket they reported themselves — an
+        // agent-reported ticket goes to the MIS Head, not to other agents.
+        query = query.or(`assignee_id.eq.${context.id},user_id.eq.${context.id}`);
+      }
+      const { data } = await query;
       const rows = data ?? [];
       setTickets(rows);
       if (isMisStaff(context.role) && rows.length > 0) {

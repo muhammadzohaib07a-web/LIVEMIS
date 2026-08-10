@@ -108,7 +108,13 @@ const PRIORITY_ACTIVE_TONE: Record<string, string> = {
 
 function ticketsVisibleTo(role: AppRole, userId: string, tickets: TicketRow[]) {
   if (role === "admin") return tickets;
-  if (role === "agent") return tickets.filter((ticket) => ticket.assignee_id === userId);
+  // Agents see tickets assigned to them, plus any they reported themselves
+  // (an agent-reported ticket goes to the MIS Head just like an employee's —
+  // it's not visible to other agents until the Head assigns it).
+  if (role === "agent")
+    return tickets.filter(
+      (ticket) => ticket.assignee_id === userId || ticket.user_id === userId,
+    );
   return tickets.filter((ticket) => ticket.user_id === userId);
 }
 
@@ -179,7 +185,8 @@ function Dashboard() {
       }
       let query = supabase.from("tickets").select("*").order("created_at", { ascending: false });
       if (context.role === "agent") {
-        query = query.eq("assignee_id", context.id);
+        // Assigned to them, plus any ticket they reported themselves.
+        query = query.or(`assignee_id.eq.${context.id},user_id.eq.${context.id}`);
       } else if (context.role === "employee") {
         query = query.eq("user_id", context.id);
       }
