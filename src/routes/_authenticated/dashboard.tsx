@@ -320,8 +320,8 @@ function Dashboard() {
         inProgress: "In Progress",
         answered: "Answered",
         awaitingFeedback: "Awaiting Feedback",
-        closed: "Closed",
-        total: "Total assigned",
+        closed: "Total Resolved",
+        total: "Total Assigned",
       },
       statusChart: "Assigned workload status",
       categoryChart: "Assigned issue categories",
@@ -366,7 +366,15 @@ function Dashboard() {
     {} as Record<string, number>,
   );
 
-  const stats = [
+  const totalStat = {
+    key: null as string | null,
+    label: dashboardCopy.statLabels.total,
+    value: tickets.length,
+    icon: TrendingUp,
+    tone: "text-accent",
+  };
+
+  const otherStats = [
     {
       key: "open",
       label: dashboardCopy.statLabels.open,
@@ -402,14 +410,10 @@ function Dashboard() {
       icon: CheckCircle2,
       tone: "text-success",
     },
-    {
-      key: null as string | null,
-      label: dashboardCopy.statLabels.total,
-      value: tickets.length,
-      icon: TrendingUp,
-      tone: "text-accent",
-    },
   ];
+
+  // Agents lead with "Total Assigned" first; admin/employee keep Total last as before.
+  const stats = role === "agent" ? [totalStat, ...otherStats] : [...otherStats, totalStat];
 
   // Interlinked filter: charts + list all respect activeStatus/activeCategory/activePriority
   const filtered = useMemo(
@@ -596,7 +600,7 @@ function Dashboard() {
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-6">
         {stats.map((s) => {
-          const isActive = activeStatus === s.key && s.key !== null;
+          const isActive = s.key === null ? !activeStatus : activeStatus === s.key;
           return (
             <button
               key={s.label}
