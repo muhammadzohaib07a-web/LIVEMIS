@@ -192,6 +192,9 @@ export const notifyTicketActivity = createServerFn({ method: "POST" })
     }
     for (const row of adminRoles ?? []) recipients.add(row.user_id);
     recipients.delete(context.userId);
+    console.log(
+      `[notifyTicketActivity] ticket=${ticket.ticket_no} actor=${context.userId} reporter=${ticket.user_id} assignee=${ticket.assignee_id ?? "none"} statusLabel=${data.statusLabel ?? "(reply)"} recipients=[${[...recipients].join(",")}]`,
+    );
 
     const title = data.statusLabel
       ? `Ticket ${ticket.ticket_no} marked ${data.statusLabel}`
