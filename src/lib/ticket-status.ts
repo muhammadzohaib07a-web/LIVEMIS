@@ -2,6 +2,11 @@ import type { Database } from "@/integrations/supabase/types";
 
 export type TicketStatus = Database["public"]["Enums"]["ticket_status"];
 
+// One-shot flag: set by a link that wants /tickets to land on a specific
+// agent tab (e.g. the dashboard's "Total Reported" card), read + cleared by
+// the tickets list on mount so a normal visit afterwards defaults as usual.
+export const TICKETS_INITIAL_TAB_KEY = "mis-tickets-initial-tab";
+
 export const TICKET_STATUS_LABELS: Record<TicketStatus, string> = {
   open: "Open",
   in_progress: "In Progress",

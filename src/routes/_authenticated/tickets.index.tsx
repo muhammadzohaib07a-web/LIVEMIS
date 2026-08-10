@@ -33,6 +33,7 @@ import {
   SLA_TONE_STYLES,
   TICKET_STATUS_LABELS,
   TICKET_STATUS_STYLES,
+  TICKETS_INITIAL_TAB_KEY,
 } from "@/lib/ticket-status";
 import { APP_TITLE } from "@/lib/app-meta";
 
@@ -79,8 +80,17 @@ function TicketsList() {
   const [requesters, setRequesters] = useState<Record<string, Requester>>({});
   // Agents both work assigned tickets and can report their own — kept as
   // separate tabs so a self-reported ticket never gets mixed into the queue
-  // of things they're supposed to be resolving for someone else.
-  const [agentView, setAgentView] = useState<"assigned" | "reported">("assigned");
+  // of things they're supposed to be resolving for someone else. Landing on
+  // "reported" is a one-shot deep-link (e.g. the dashboard's "Total Reported"
+  // card) — consume the flag once so a normal visit still defaults to "assigned".
+  const [agentView, setAgentView] = useState<"assigned" | "reported">(() => {
+    if (typeof window === "undefined") return "assigned";
+    if (sessionStorage.getItem(TICKETS_INITIAL_TAB_KEY) === "reported") {
+      sessionStorage.removeItem(TICKETS_INITIAL_TAB_KEY);
+      return "reported";
+    }
+    return "assigned";
+  });
   // The realtime subscription below is created once on mount, before the
   // async context/role lookup resolves, so it can't close over role/me state
   // directly without going stale — these refs give it a live read instead.

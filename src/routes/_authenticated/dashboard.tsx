@@ -43,6 +43,7 @@ import {
   normalizedTicketStatus,
   TICKET_STATUS_LABELS,
   TICKET_STATUS_STYLES,
+  TICKETS_INITIAL_TAB_KEY,
 } from "@/lib/ticket-status";
 import { APP_TITLE } from "@/lib/app-meta";
 import { sendFeedbackReminders } from "@/lib/feedback-reminders";
@@ -641,6 +642,7 @@ function Dashboard() {
         {role === "agent" && (
           <Link
             to="/tickets"
+            onClick={() => sessionStorage.setItem(TICKETS_INITIAL_TAB_KEY, "reported")}
             className="rounded-2xl border border-border/60 bg-surface/60 p-4 text-left backdrop-blur transition hover:border-border"
           >
             <div className="flex items-center justify-between">
