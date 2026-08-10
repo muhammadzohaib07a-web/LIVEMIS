@@ -77,6 +77,10 @@ function TicketsList() {
   const [role, setRole] = useState<AppRole>("employee");
   const [me, setMe] = useState<string | null>(null);
   const [requesters, setRequesters] = useState<Record<string, Requester>>({});
+  // Agents both work assigned tickets and can report their own — kept as
+  // separate tabs so a self-reported ticket never gets mixed into the queue
+  // of things they're supposed to be resolving for someone else.
+  const [agentView, setAgentView] = useState<"assigned" | "reported">("assigned");
   // The realtime subscription below is created once on mount, before the
   // async context/role lookup resolves, so it can't close over role/me state
   // directly without going stale — these refs give it a live read instead.
@@ -231,7 +235,14 @@ function TicketsList() {
     };
   }, []);
 
-  const filtered = tickets.filter((t) => {
+  const agentScoped =
+    role === "agent"
+      ? tickets.filter((t) =>
+          agentView === "assigned" ? t.assignee_id === me : t.user_id === me,
+        )
+      : tickets;
+
+  const filtered = agentScoped.filter((t) => {
     if (status !== "all" && normalizedTicketStatus(t.status) !== status) return false;
     if (categoryFilter !== "all" && t.category !== categoryFilter) return false;
     if (queueFilter === "unassigned" && t.assignee_id) return false;
@@ -291,14 +302,18 @@ function TicketsList() {
             {role === "admin"
               ? "Assign requests from all departments to MIS agents"
               : role === "agent"
-                ? "Tickets assigned to you by the MIS Head"
+                ? agentView === "assigned"
+                  ? "Tickets assigned to you by the MIS Head"
+                  : "Tickets you've reported to the MIS Head"
                 : "Your requests to MIS"}
           </p>
           <h1 className="text-3xl font-black tracking-tight sm:text-4xl">
             {role === "admin"
               ? "MIS Head Queue"
               : role === "agent"
-                ? "My Assigned Tickets"
+                ? agentView === "assigned"
+                  ? "My Assigned Tickets"
+                  : "Tickets I Reported"
                 : "My Tickets"}
           </h1>
         </div>
@@ -321,6 +336,33 @@ function TicketsList() {
           </Button>
         )}
       </div>
+
+      {role === "agent" && (
+        <div className="mb-4 inline-flex rounded-xl border border-border/60 bg-surface/40 p-1">
+          <button
+            type="button"
+            onClick={() => setAgentView("assigned")}
+            className={`rounded-lg px-4 py-1.5 text-sm font-semibold transition ${
+              agentView === "assigned"
+                ? "bg-primary text-primary-foreground shadow-elegant"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            Assigned to Me
+          </button>
+          <button
+            type="button"
+            onClick={() => setAgentView("reported")}
+            className={`rounded-lg px-4 py-1.5 text-sm font-semibold transition ${
+              agentView === "reported"
+                ? "bg-primary text-primary-foreground shadow-elegant"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            Reported by Me
+          </button>
+        </div>
+      )}
 
       <div className="mb-4 flex flex-col gap-3 sm:flex-row">
         <div className="relative flex-1">
