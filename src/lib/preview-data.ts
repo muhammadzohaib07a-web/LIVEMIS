@@ -247,3 +247,60 @@ export function storePreviewTicketUpdate(ticketId: string, update: Partial<Ticke
   };
   localStorage.setItem(PREVIEW_TICKET_STORAGE_KEY, JSON.stringify(updates));
 }
+
+// --- Read receipts + emoji reactions (preview/demo mode only) ---
+
+export const PREVIEW_MESSAGE_READS_KEY = "mis-support-preview-message-reads";
+export const PREVIEW_MESSAGE_REACTIONS_KEY = "mis-support-preview-message-reactions";
+
+type StoredPreviewReads = Record<string, string[]>;
+export type PreviewReaction = { userId: string; emoji: string };
+type StoredPreviewReactions = Record<string, PreviewReaction[]>;
+
+function readPreviewReads(): StoredPreviewReads {
+  if (typeof window === "undefined") return {};
+  try {
+    return JSON.parse(localStorage.getItem(PREVIEW_MESSAGE_READS_KEY) ?? "{}");
+  } catch {
+    return {};
+  }
+}
+
+export function getPreviewMessageReads(): StoredPreviewReads {
+  return readPreviewReads();
+}
+
+export function markPreviewMessageRead(messageId: string, userId: string) {
+  const reads = readPreviewReads();
+  const readers = reads[messageId] ?? [];
+  if (readers.includes(userId)) return;
+  reads[messageId] = [...readers, userId];
+  localStorage.setItem(PREVIEW_MESSAGE_READS_KEY, JSON.stringify(reads));
+}
+
+function readPreviewReactions(): StoredPreviewReactions {
+  if (typeof window === "undefined") return {};
+  try {
+    return JSON.parse(localStorage.getItem(PREVIEW_MESSAGE_REACTIONS_KEY) ?? "{}");
+  } catch {
+    return {};
+  }
+}
+
+export function getPreviewMessageReactions(): StoredPreviewReactions {
+  return readPreviewReactions();
+}
+
+// Picking the same emoji you already reacted with removes it; picking a
+// different one replaces it — one reaction per person per message.
+export function togglePreviewMessageReaction(messageId: string, userId: string, emoji: string) {
+  const reactions = readPreviewReactions();
+  const current = reactions[messageId] ?? [];
+  const existing = current.find((r) => r.userId === userId);
+  if (existing?.emoji === emoji) {
+    reactions[messageId] = current.filter((r) => r.userId !== userId);
+  } else {
+    reactions[messageId] = [...current.filter((r) => r.userId !== userId), { userId, emoji }];
+  }
+  localStorage.setItem(PREVIEW_MESSAGE_REACTIONS_KEY, JSON.stringify(reactions));
+}

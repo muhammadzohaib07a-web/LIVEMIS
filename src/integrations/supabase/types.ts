@@ -113,6 +113,51 @@ export type Database = {
         };
         Relationships: [];
       };
+      message_reactions: {
+        Row: {
+          created_at: string;
+          emoji: string;
+          message_id: string;
+          ticket_id: string;
+          user_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          emoji: string;
+          message_id: string;
+          ticket_id: string;
+          user_id: string;
+        };
+        Update: {
+          created_at?: string;
+          emoji?: string;
+          message_id?: string;
+          ticket_id?: string;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
+      message_reads: {
+        Row: {
+          message_id: string;
+          read_at: string;
+          ticket_id: string;
+          user_id: string;
+        };
+        Insert: {
+          message_id: string;
+          read_at?: string;
+          ticket_id: string;
+          user_id: string;
+        };
+        Update: {
+          message_id?: string;
+          read_at?: string;
+          ticket_id?: string;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
       notifications: {
         Row: {
           body: string | null;

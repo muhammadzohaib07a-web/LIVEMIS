@@ -30,6 +30,9 @@ import {
   AtSign,
   Paperclip,
   X,
+  Check,
+  CheckCheck,
+  SmilePlus,
 } from "lucide-react";
 import { toast } from "sonner";
 import { getCurrentUserContext, isMisStaff, type AppRole } from "@/lib/current-user";
@@ -38,7 +41,12 @@ import {
   getCurrentPreviewTickets,
   getPreviewTicket,
   getPreviewMessages,
+  getPreviewMessageReactions,
+  getPreviewMessageReads,
+  markPreviewMessageRead,
   PREVIEW_CHAT_STORAGE_KEY,
+  PREVIEW_MESSAGE_REACTIONS_KEY,
+  PREVIEW_MESSAGE_READS_KEY,
   PREVIEW_TICKET_STORAGE_KEY,
   previewAgents,
   previewRequesters,
@@ -46,6 +54,7 @@ import {
   storePreviewMessage,
   storePreviewTicket,
   storePreviewTicketUpdate,
+  togglePreviewMessageReaction,
 } from "@/lib/preview-data";
 import { getCategoryLabel } from "@/lib/ticket-categories";
 import {
@@ -106,6 +115,10 @@ const QUICK_EMOJIS = [
   "📊",
   "🧾",
 ];
+
+// Reaction picker on a message bubble — a small fixed set, not the full
+// composer picker above, to keep the tap target quick like WhatsApp's.
+const REACTION_EMOJIS = ["👍", "❤️", "😂", "😮", "😢", "🙏"];
 
 const CHAT_ATTACHMENT_MAX_SIZE = 10 * 1024 * 1024; // 10MB, matches storage bucket limit
 const CHAT_ATTACHMENT_TYPES = [
@@ -282,12 +295,19 @@ function TicketDetail() {
   const [attachmentUrls, setAttachmentUrls] = useState<Record<string, string>>({});
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [messageAttachmentUrls, setMessageAttachmentUrls] = useState<Record<string, string>>({});
+  // messageId -> user ids who've seen it (drives single/double/blue tick on
+  // your own sent messages) and messageId -> emoji reactions on that message.
+  const [messageReads, setMessageReads] = useState<Record<string, string[]>>({});
+  const [messageReactions, setMessageReactions] = useState<
+    Record<string, { userId: string; emoji: string }[]>
+  >({});
   const scrollRef = useRef<HTMLDivElement>(null);
   const previewChannelRef = useRef<BroadcastChannel | null>(null);
   const previewTicketChannelRef = useRef<BroadcastChannel | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const resolvedAttachmentPaths = useRef<Set<string>>(new Set());
+  const readMarkedRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     if (isPreviewMode()) {
@@ -313,6 +333,12 @@ function TicketDetail() {
         if (event.key === PREVIEW_TICKET_STORAGE_KEY) {
           setTicket(getPreviewTicket(id));
         }
+        if (event.key === PREVIEW_MESSAGE_READS_KEY) {
+          setMessageReads(getPreviewMessageReads());
+        }
+        if (event.key === PREVIEW_MESSAGE_REACTIONS_KEY) {
+          setMessageReactions(getPreviewMessageReactions());
+        }
       };
       window.addEventListener("storage", syncStoredMessages);
       setRealtimeStatus("live");
@@ -322,6 +348,8 @@ function TicketDetail() {
         setRole(context?.role ?? "employee");
         setTicket(previewTicket);
         setMessages(getPreviewMessages(id));
+        setMessageReads(getPreviewMessageReads());
+        setMessageReactions(getPreviewMessageReactions());
         setFollowUps(
           getCurrentPreviewTickets().filter((candidate) => candidate.parent_ticket_id === id),
         );
@@ -385,6 +413,24 @@ function TicketDetail() {
       setTicket(t);
       setMessages(msgs ?? []);
       setFollowUps(followUpsResult.data ?? []);
+      const [readsResult, reactionsResult] = await Promise.all([
+        supabase.from("message_reads").select("message_id, user_id").eq("ticket_id", id),
+        supabase.from("message_reactions").select("message_id, user_id, emoji").eq("ticket_id", id),
+      ]);
+      if (readsResult.data) {
+        const grouped: Record<string, string[]> = {};
+        for (const row of readsResult.data) {
+          (grouped[row.message_id] ??= []).push(row.user_id);
+        }
+        setMessageReads(grouped);
+      }
+      if (reactionsResult.data) {
+        const grouped: Record<string, { userId: string; emoji: string }[]> = {};
+        for (const row of reactionsResult.data) {
+          (grouped[row.message_id] ??= []).push({ userId: row.user_id, emoji: row.emoji });
+        }
+        setMessageReactions(grouped);
+      }
       const senderIds = [
         ...new Set([
           ...(msgs ?? []).map((message) => message.sender_id),
@@ -479,6 +525,42 @@ function TicketDetail() {
           });
         },
       )
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "message_reads", filter: `ticket_id=eq.${id}` },
+        (payload) => {
+          const row = payload.new as { message_id: string; user_id: string };
+          setMessageReads((current) => {
+            const readers = current[row.message_id] ?? [];
+            if (readers.includes(row.user_id)) return current;
+            return { ...current, [row.message_id]: [...readers, row.user_id] };
+          });
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "message_reactions", filter: `ticket_id=eq.${id}` },
+        (payload) => {
+          if (payload.eventType === "DELETE") {
+            const deleted = payload.old as { message_id: string; user_id: string };
+            setMessageReactions((current) => ({
+              ...current,
+              [deleted.message_id]: (current[deleted.message_id] ?? []).filter(
+                (r) => r.userId !== deleted.user_id,
+              ),
+            }));
+            return;
+          }
+          const row = payload.new as { message_id: string; user_id: string; emoji: string };
+          setMessageReactions((current) => ({
+            ...current,
+            [row.message_id]: [
+              ...(current[row.message_id] ?? []).filter((r) => r.userId !== row.user_id),
+              { userId: row.user_id, emoji: row.emoji },
+            ],
+          }));
+        },
+      )
       .subscribe((status) => {
         setRealtimeStatus(status === "SUBSCRIBED" ? "live" : "fallback");
       });
@@ -509,6 +591,45 @@ function TicketDetail() {
       supabase.removeChannel(channel);
     };
   }, [id]);
+
+  // Mark every message someone else sent as read by me the moment it's on
+  // screen — this is what lets the SENDER's tick advance to gray/blue.
+  // readMarkedRef avoids re-sending the same read receipt on every render.
+  useEffect(() => {
+    if (!me || messages.length === 0) return;
+    const unread = messages.filter(
+      (m) =>
+        m.sender_id !== me &&
+        !readMarkedRef.current.has(m.id) &&
+        !isStatusChangeMessage(m.body) &&
+        !isAssignmentMessage(m.body),
+    );
+    if (unread.length === 0) return;
+    for (const m of unread) readMarkedRef.current.add(m.id);
+
+    if (isPreviewMode()) {
+      for (const m of unread) markPreviewMessageRead(m.id, me);
+      setMessageReads((current) => {
+        const next = { ...current };
+        for (const m of unread) {
+          const readers = next[m.id] ?? [];
+          if (!readers.includes(me)) next[m.id] = [...readers, me];
+        }
+        return next;
+      });
+      return;
+    }
+
+    void supabase
+      .from("message_reads")
+      .upsert(
+        unread.map((m) => ({ message_id: m.id, ticket_id: id, user_id: me })),
+        { onConflict: "message_id,user_id", ignoreDuplicates: true },
+      )
+      .then(({ error }) => {
+        if (error) console.error("Failed to mark messages read", error);
+      });
+  }, [me, messages, id]);
 
   useEffect(() => {
     if (!ticket) {
@@ -599,6 +720,42 @@ function TicketDetail() {
       const caret = start + text.length;
       textarea.setSelectionRange(caret, caret);
     });
+  };
+
+  // Picking the same emoji you already reacted with removes it; a different
+  // one replaces it — one reaction per person per message, like WhatsApp.
+  const toggleReaction = async (messageId: string, emoji: string) => {
+    if (!me) return;
+    const existing = (messageReactions[messageId] ?? []).find((r) => r.userId === me);
+    const removing = existing?.emoji === emoji;
+
+    setMessageReactions((current) => ({
+      ...current,
+      [messageId]: removing
+        ? (current[messageId] ?? []).filter((r) => r.userId !== me)
+        : [...(current[messageId] ?? []).filter((r) => r.userId !== me), { userId: me, emoji }],
+    }));
+
+    if (isPreviewMode()) {
+      togglePreviewMessageReaction(messageId, me, emoji);
+      return;
+    }
+    if (removing) {
+      const { error } = await supabase
+        .from("message_reactions")
+        .delete()
+        .eq("message_id", messageId)
+        .eq("user_id", me);
+      if (error) toast.error(error.message);
+      return;
+    }
+    const { error } = await supabase
+      .from("message_reactions")
+      .upsert(
+        { message_id: messageId, ticket_id: id, user_id: me, emoji },
+        { onConflict: "message_id,user_id" },
+      );
+    if (error) toast.error(error.message);
   };
 
   const handleFilesSelected = async (files: FileList | null) => {
@@ -1409,10 +1566,28 @@ function TicketDetail() {
                     : senderRole === "agent"
                       ? "MIS Agent"
                       : `${sender?.department ?? requester?.department ?? "Department"} Employee`;
+                // Tick state for messages I sent: gray single = sent, gray
+                // double = seen by at least one other participant, blue
+                // double = seen by everyone in the ticket's circle. An
+                // unassigned ticket only has 2 possible viewers (reporter +
+                // admin), so it needs just 1 reader to go blue; once
+                // assigned it takes 2 (the third party too).
+                const readers = (messageReads[m.id] ?? []).filter((r) => r !== m.sender_id);
+                const requiredForBlue = ticket.assignee_id ? 2 : 1;
+                const reactions = messageReactions[m.id] ?? [];
+                const myReaction = reactions.find((r) => r.userId === me)?.emoji;
+                const reactionCounts = reactions.reduce<Record<string, number>>((acc, r) => {
+                  acc[r.emoji] = (acc[r.emoji] ?? 0) + 1;
+                  return acc;
+                }, {});
                 return (
                   <Fragment key={m.id}>
                     {dateSeparator}
-                    <div className={`flex ${mine ? "justify-end" : "justify-start"}`}>
+                    <div
+                      className={`group flex items-center gap-1 ${
+                        mine ? "flex-row-reverse justify-start" : "justify-start"
+                      }`}
+                    >
                       <div
                         className={`max-w-[75%] rounded-2xl px-4 py-2.5 text-sm ${
                           mine
@@ -1477,17 +1652,80 @@ function TicketDetail() {
                             })}
                           </div>
                         )}
+                        {Object.keys(reactionCounts).length > 0 && (
+                          <div className="mt-1.5 flex flex-wrap gap-1">
+                            {Object.entries(reactionCounts).map(([emoji, count]) => (
+                              <button
+                                key={emoji}
+                                type="button"
+                                onClick={() => void toggleReaction(m.id, emoji)}
+                                className={`inline-flex items-center gap-0.5 rounded-full border px-1.5 py-0.5 text-xs transition ${
+                                  myReaction === emoji
+                                    ? mine
+                                      ? "border-primary-foreground bg-primary-foreground/20"
+                                      : "border-primary bg-primary/10"
+                                    : mine
+                                      ? "border-primary-foreground/30 hover:bg-primary-foreground/10"
+                                      : "border-border hover:bg-muted"
+                                }`}
+                              >
+                                <span>{emoji}</span>
+                                {count > 1 && <span className="text-[10px] font-semibold">{count}</span>}
+                              </button>
+                            ))}
+                          </div>
+                        )}
                         <p
-                          className={`mt-1 text-[10px] ${
+                          className={`mt-1 flex items-center gap-1 text-[10px] ${
                             mine ? "text-primary-foreground/70" : "text-muted-foreground"
                           }`}
                         >
-                          {messageDate.toLocaleTimeString([], {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
+                          <span>
+                            {messageDate.toLocaleTimeString([], {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                          </span>
+                          {mine &&
+                            (readers.length === 0 ? (
+                              <Check className="h-3 w-3" aria-label="Sent" />
+                            ) : readers.length < requiredForBlue ? (
+                              <CheckCheck className="h-3 w-3" aria-label="Delivered" />
+                            ) : (
+                              <CheckCheck
+                                className="h-3 w-3 text-sky-300"
+                                aria-label="Seen"
+                              />
+                            ))}
                         </p>
                       </div>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <button
+                            type="button"
+                            className="rounded-full p-1.5 text-muted-foreground opacity-0 transition hover:bg-muted group-hover:opacity-100"
+                            aria-label="React to message"
+                          >
+                            <SmilePlus className="h-3.5 w-3.5" />
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-1.5" side="top">
+                          <div className="flex gap-1">
+                            {REACTION_EMOJIS.map((emoji) => (
+                              <button
+                                key={emoji}
+                                type="button"
+                                onClick={() => void toggleReaction(m.id, emoji)}
+                                className={`rounded-lg p-1.5 text-lg transition hover:scale-110 hover:bg-muted ${
+                                  myReaction === emoji ? "bg-muted" : ""
+                                }`}
+                              >
+                                {emoji}
+                              </button>
+                            ))}
+                          </div>
+                        </PopoverContent>
+                      </Popover>
                     </div>
                   </Fragment>
                 );
