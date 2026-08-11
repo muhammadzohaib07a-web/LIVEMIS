@@ -67,6 +67,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [unread, setUnread] = useState(0);
   const [open, setOpen] = useState(false);
   const [role, setRole] = useState<AppRole>("employee");
+  // role/profile start at placeholder defaults and only become correct once
+  // getCurrentUserContext() resolves — without this flag, a hard refresh (or
+  // any fresh mount) briefly renders the "employee" nav/label for every
+  // role, which reads as flashing the wrong person's view before it corrects.
+  const [ready, setReady] = useState(false);
   const [theme, setTheme] = useState<AppTheme>("light");
   const [pushState, setPushState] = useState<"subscribed" | "unsubscribed" | "denied" | "unsupported">(
     "unsupported",
@@ -114,6 +119,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         department: context.department,
         email: context.email,
       });
+      setReady(true);
       if (isPreviewMode()) {
         const refreshUnread = () => {
           setUnread(
@@ -197,7 +203,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen">
       {/* Sidebar (desktop) */}
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 border-r border-border/60 bg-surface/40 backdrop-blur lg:flex lg:flex-col">
-        <SidebarInner pathname={pathname} unread={unread} role={role} />
+        <SidebarInner pathname={pathname} unread={unread} role={role} ready={ready} />
       </aside>
 
       {/* Mobile drawer */}
@@ -212,6 +218,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               pathname={pathname}
               unread={unread}
               role={role}
+              ready={ready}
               onNavigate={() => setOpen(false)}
             />
           </aside>
@@ -283,19 +290,31 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               )}
             </button>
             <div className="hidden items-center gap-2 rounded-lg border border-border/60 bg-surface/60 px-3 py-1.5 text-sm sm:flex">
-              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-primary text-xs font-bold text-primary-foreground">
-                {initial}
-              </div>
-              <div className="leading-tight">
-                <p className="text-xs font-semibold">{profile?.full_name ?? firstName}</p>
-                <p className="text-[10px] text-muted-foreground">
-                  {role === "admin"
-                    ? "MIS Head"
-                    : role === "agent"
-                      ? "MIS Agent"
-                      : (profile?.department ?? "Employee")}
-                </p>
-              </div>
+              {ready ? (
+                <>
+                  <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-primary text-xs font-bold text-primary-foreground">
+                    {initial}
+                  </div>
+                  <div className="leading-tight">
+                    <p className="text-xs font-semibold">{profile?.full_name ?? firstName}</p>
+                    <p className="text-[10px] text-muted-foreground">
+                      {role === "admin"
+                        ? "MIS Head"
+                        : role === "agent"
+                          ? "MIS Agent"
+                          : (profile?.department ?? "Employee")}
+                    </p>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="h-7 w-7 animate-pulse rounded-full bg-muted" />
+                  <div className="leading-tight">
+                    <div className="h-2.5 w-16 animate-pulse rounded bg-muted" />
+                    <div className="mt-1.5 h-2 w-12 animate-pulse rounded bg-muted" />
+                  </div>
+                </>
+              )}
             </div>
             <button
               onClick={signOut}
@@ -325,11 +344,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     pathname,
     unread,
     role,
+    ready,
     onNavigate,
   }: {
     pathname: string;
     unread: number;
     role: AppRole;
+    ready: boolean;
     onNavigate?: () => void;
   }) {
     const visibleNav = nav.filter((item) => {
@@ -355,7 +376,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           )}
         </div>
         <nav className="flex-1 space-y-1 p-3">
-          {visibleNav.map((item) => {
+          {!ready
+            ? // Role isn't known yet — a skeleton avoids briefly showing the
+              // wrong role's nav items (e.g. admin-only links) before it corrects.
+              Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="h-10 animate-pulse rounded-xl bg-surface" />
+              ))
+            : visibleNav.map((item) => {
             const active =
               item.to === "/dashboard" || item.to === "/report"
                 ? pathname === item.to

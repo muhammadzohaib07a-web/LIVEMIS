@@ -323,24 +323,36 @@ function TicketsList() {
     <>
       <div className="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
         <div>
-          <p className="text-sm text-muted-foreground">
-            {role === "admin"
-              ? "Assign requests from all departments to MIS agents"
-              : role === "agent"
-                ? agentView === "assigned"
-                  ? "Tickets assigned to you by the MIS Head"
-                  : "Tickets you've reported to the MIS Head"
-                : "Your requests to MIS"}
-          </p>
-          <h1 className="text-3xl font-black tracking-tight sm:text-4xl">
-            {role === "admin"
-              ? "MIS Head Queue"
-              : role === "agent"
-                ? agentView === "assigned"
-                  ? "My Assigned Tickets"
-                  : "Tickets I Reported"
-                : "My Tickets"}
-          </h1>
+          {loading ? (
+            // role still defaults to "employee" until getCurrentUserContext()
+            // resolves — a skeleton avoids briefly showing the wrong role's
+            // heading (e.g. an admin seeing "My Tickets") before it corrects.
+            <div className="space-y-2">
+              <div className="h-4 w-56 animate-pulse rounded bg-surface" />
+              <div className="h-8 w-48 animate-pulse rounded bg-surface sm:h-9" />
+            </div>
+          ) : (
+            <>
+              <p className="text-sm text-muted-foreground">
+                {role === "admin"
+                  ? "Assign requests from all departments to MIS agents"
+                  : role === "agent"
+                    ? agentView === "assigned"
+                      ? "Tickets assigned to you by the MIS Head"
+                      : "Tickets you've reported to the MIS Head"
+                    : "Your requests to MIS"}
+              </p>
+              <h1 className="text-3xl font-black tracking-tight sm:text-4xl">
+                {role === "admin"
+                  ? "MIS Head Queue"
+                  : role === "agent"
+                    ? agentView === "assigned"
+                      ? "My Assigned Tickets"
+                      : "Tickets I Reported"
+                    : "My Tickets"}
+              </h1>
+            </>
+          )}
         </div>
         {role !== "admin" && (
           <Link

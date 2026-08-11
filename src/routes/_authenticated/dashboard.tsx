@@ -509,16 +509,30 @@ function Dashboard() {
     <>
       <div className="mb-8 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
         <div>
-          <h1 className="text-3xl font-black tracking-tight sm:text-4xl">
-            {dashboardCopy.heading}
-          </h1>
-          <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-            {dashboardCopy.description}
-          </p>
-          <p className="mt-2 text-xs font-medium uppercase tracking-widest text-muted-foreground">
-            {profile?.employee_id && role === "employee" ? `ID ${profile.employee_id} · ` : ""}
-            {dashboardCopy.profileLine}
-          </p>
+          {loadingTickets ? (
+            // role still defaults to "employee" until getCurrentUserContext()
+            // resolves — a skeleton here avoids briefly showing the wrong
+            // role's heading/copy (e.g. an admin seeing "My Support Dashboard")
+            // before it corrects.
+            <div className="space-y-2">
+              <div className="h-8 w-64 animate-pulse rounded bg-surface sm:h-9 sm:w-80" />
+              <div className="h-4 w-72 animate-pulse rounded bg-surface" />
+              <div className="h-3 w-40 animate-pulse rounded bg-surface" />
+            </div>
+          ) : (
+            <>
+              <h1 className="text-3xl font-black tracking-tight sm:text-4xl">
+                {dashboardCopy.heading}
+              </h1>
+              <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
+                {dashboardCopy.description}
+              </p>
+              <p className="mt-2 text-xs font-medium uppercase tracking-widest text-muted-foreground">
+                {profile?.employee_id && role === "employee" ? `ID ${profile.employee_id} · ` : ""}
+                {dashboardCopy.profileLine}
+              </p>
+            </>
+          )}
         </div>
         <Link
           to={isMisStaff(role) ? "/tickets" : "/report"}
