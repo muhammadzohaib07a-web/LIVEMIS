@@ -155,11 +155,10 @@ export const notifyAwaitingFeedback = createServerFn({ method: "POST" })
   });
 
 // Fires on every chat reply AND every status change (e.g. marked Answered):
-// push-only (no email for this one), mirrors the same routing the
-// notify_on_ticket_message DB trigger uses for the in-app bell — the
-// reporter's own activity goes to the assignee (or every admin if still
-// unassigned); MIS staff's activity goes to the reporter. Admins always get
-// a copy either way, since the Head oversees every ticket.
+// push-only (no email for this one). Notifies everyone else in the ticket's
+// circle — reporter, assignee, every admin — minus whoever just acted. This
+// matters most when the Head chats/updates a ticket that's assigned to an
+// agent: the agent needs to hear about it too, not just the reporter.
 export const notifyTicketActivity = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .validator(
@@ -185,11 +184,8 @@ export const notifyTicketActivity = createServerFn({ method: "POST" })
 
     const senderName = sender?.full_name ?? sender?.email ?? "Someone";
     const recipients = new Set<string>();
-    if (context.userId === ticket.user_id) {
-      if (ticket.assignee_id) recipients.add(ticket.assignee_id);
-    } else {
-      recipients.add(ticket.user_id);
-    }
+    recipients.add(ticket.user_id);
+    if (ticket.assignee_id) recipients.add(ticket.assignee_id);
     for (const row of adminRoles ?? []) recipients.add(row.user_id);
     recipients.delete(context.userId);
     console.log(
