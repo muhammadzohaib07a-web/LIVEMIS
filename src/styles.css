@@ -492,3 +492,110 @@ body {
 @utility animate-status-pop {
   animation: status-pop 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both;
 }
+
+/* --- Marketing landing page (route "/") --- */
+
+/* Spins the dot-cone in the "how it's made" graphic. The cone is tilted with
+   rotateX on a preserve-3d parent, so spinning around Z turns it about its
+   own vertical axis — done on the compositor, no JS per frame. */
+@keyframes funnel-spin {
+  from {
+    transform: rotateX(72deg) rotateZ(0deg);
+  }
+  to {
+    transform: rotateX(72deg) rotateZ(360deg);
+  }
+}
+@utility animate-funnel-spin {
+  animation: funnel-spin 26s linear infinite;
+}
+
+/* Endless keyword band. The track holds two identical copies, so sliding it
+   exactly -50% loops seamlessly. */
+@keyframes marquee-slide {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+@utility animate-marquee-slide {
+  animation: marquee-slide 32s linear infinite;
+}
+
+/* The WHY wordmark's reflection sits on "water". Two mirrored copies sway
+   left-right on deliberately non-harmonic durations (5s vs 7.4s) so their
+   phases keep drifting apart and the surface never repeats visibly. The
+   scaleY(-1) has to live inside each keyframe because transform is one
+   property — leaving it on the class would be overwritten by the animation. */
+@keyframes water-sway-a {
+  0%,
+  100% {
+    transform: scaleY(-1) skewX(-7deg) translateX(-34px) scaleX(0.97);
+  }
+  50% {
+    transform: scaleY(-1) skewX(7deg) translateX(34px) scaleX(1.03);
+  }
+}
+@keyframes water-sway-b {
+  0%,
+  100% {
+    transform: scaleY(-1) skewX(5deg) translateX(24px) scaleX(1.03);
+  }
+  50% {
+    transform: scaleY(-1) skewX(-5deg) translateX(-24px) scaleX(0.97);
+  }
+}
+/* Fine horizontal bands drifting downward — the give-away that a reflection
+   is sitting on a moving surface rather than a mirror. */
+@keyframes water-lines {
+  from {
+    background-position: 0 0;
+  }
+  to {
+    background-position: 0 9px;
+  }
+}
+@utility animate-water-a {
+  animation: water-sway-a 3.6s ease-in-out infinite;
+}
+@utility animate-water-b {
+  animation: water-sway-b 5.3s ease-in-out infinite;
+}
+@utility animate-water-lines {
+  animation: water-lines 1.8s linear infinite;
+}
+
+/* Scroll-triggered reveal: elements start shifted/faded and get .is-visible
+   from an IntersectionObserver once they enter the viewport. */
+@utility reveal-item {
+  opacity: 0;
+  transform: translateY(28px);
+  transition:
+    opacity 0.9s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.9s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@utility reveal-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-funnel-spin,
+  .animate-marquee-slide,
+  .animate-water-lines {
+    animation: none;
+  }
+  /* Keep the mirror, drop the movement. */
+  .animate-water-a,
+  .animate-water-b {
+    animation: none;
+    transform: scaleY(-1);
+  }
+  .reveal-item {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}
