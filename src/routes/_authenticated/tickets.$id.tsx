@@ -11,6 +11,17 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import type { Database } from "@/integrations/supabase/types";
 import {
   ArrowLeft,
@@ -33,6 +44,7 @@ import {
   Check,
   CheckCheck,
   SmilePlus,
+  Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { getCurrentUserContext, isMisStaff, type AppRole } from "@/lib/current-user";
@@ -72,6 +84,7 @@ import {
 } from "@/lib/ticket-status";
 import { mentionOptionsForRole } from "@/lib/mentions";
 import {
+  deleteTicketAsAdmin,
   notifyAwaitingFeedback,
   notifyTicketActivity,
   notifyTicketAssigned,
@@ -277,6 +290,7 @@ function TicketDetail() {
   const [body, setBody] = useState("");
   const [sending, setSending] = useState(false);
   const [confirmingFix, setConfirmingFix] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [role, setRole] = useState<AppRole>("employee");
   const [requester, setRequester] = useState<{
     full_name: string | null;
@@ -837,6 +851,31 @@ function TicketDetail() {
     void notifyTicketActivity({ data: { ticketId: id } }).catch((notifyError) =>
       console.error("Failed to send reply push notification", notifyError),
     );
+  };
+
+  /**
+   * Deleting is permanent: the chat, its read receipts and its reactions all
+   * cascade away with the ticket. The reporter and the assigned agent are told
+   * by a database trigger that fires before the row goes, so the notification
+   * still has a ticket number to quote.
+   */
+  const deleteTicket = async () => {
+    if (deleting) return;
+    setDeleting(true);
+    try {
+      const result = await deleteTicketAsAdmin({ data: { ticketId: id } });
+      toast.success(
+        result.notified > 0
+          ? `Ticket ${result.ticketNo} deleted — ${result.notified} person(s) notified`
+          : `Ticket ${result.ticketNo} deleted`,
+      );
+      navigate({ to: "/tickets" });
+    } catch (deleteError) {
+      setDeleting(false);
+      toast.error(
+        deleteError instanceof Error ? deleteError.message : "Could not delete this ticket.",
+      );
+    }
   };
 
   const confirmIssueFixed = async () => {
@@ -1465,6 +1504,55 @@ function TicketDetail() {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+          )}
+
+          {role === "admin" && (
+            <div className="rounded-2xl border border-destructive/30 bg-destructive/5 p-5">
+              <h3 className="flex items-center gap-2 text-sm font-semibold text-destructive">
+                <Trash2 className="h-4 w-4" /> Delete ticket
+              </h3>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Removes this ticket and its entire conversation for everyone. The
+                person who raised it is notified. This cannot be undone.
+              </p>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="destructive" size="sm" className="mt-3" disabled={deleting}>
+                    {deleting ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" /> Deleting…
+                      </>
+                    ) : (
+                      <>
+                        <Trash2 className="h-4 w-4" /> Delete ticket
+                      </>
+                    )}
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete {ticket.ticket_no}?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      “{ticket.title}” and every message on it will be removed for
+                      everyone, permanently.{" "}
+                      {requester?.full_name ?? requester?.email ?? "The person who raised it"}{" "}
+                      will be told it was
+                      deleted. Any follow-up ticket raised from it stays, but stops
+                      pointing back here.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Keep it</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={() => void deleteTicket()}
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    >
+                      Delete permanently
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </div>
           )}
 

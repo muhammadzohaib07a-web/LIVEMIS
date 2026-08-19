@@ -203,3 +203,77 @@ export const notifyTicketActivity = createServerFn({ method: "POST" })
       ),
     );
   });
+
+/**
+ * Deletes a ticket and tells the people who were on it.
+ *
+ * The notification has to be written before the row goes: once the ticket is
+ * deleted its number, title and reporter are gone, and the messages, read
+ * receipts and reactions cascade away with it.
+ *
+ * This runs server-side rather than as a database trigger on purpose. A trigger
+ * would only work once its migration had been applied, and code reaching
+ * production ahead of its SQL has already cost this project silent gaps twice.
+ * Doing it here means deleting is never possible without the notification.
+ */
+export const deleteTicketAsAdmin = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator(z.object({ ticketId: z.string().uuid() }))
+  .handler(async ({ data, context }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    // Deleting is admin-only. The RLS policy enforces this too, but the check
+    // is repeated here because this path runs with the service role, which
+    // bypasses RLS entirely.
+    const { data: callerRole } = await supabaseAdmin
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", context.userId)
+      .eq("role", "admin")
+      .maybeSingle();
+    if (!callerRole) throw new Error("Only the MIS Head can delete a ticket.");
+
+    const { data: ticket } = await supabaseAdmin
+      .from("tickets")
+      .select("ticket_no, title, user_id, assignee_id")
+      .eq("id", data.ticketId)
+      .maybeSingle();
+    if (!ticket) throw new Error("That ticket no longer exists.");
+
+    const { data: actor } = await supabaseAdmin
+      .from("profiles")
+      .select("full_name, email")
+      .eq("id", context.userId)
+      .maybeSingle();
+    const actorName = actor?.full_name ?? actor?.email ?? "The MIS Head";
+
+    const recipients = new Set<string>();
+    recipients.add(ticket.user_id);
+    if (ticket.assignee_id) recipients.add(ticket.assignee_id);
+    recipients.delete(context.userId);
+
+    const title = `Ticket ${ticket.ticket_no} was deleted`;
+    const body = `${actorName} deleted this ticket: ${ticket.title.slice(0, 140)}`;
+
+    if (recipients.size > 0) {
+      await supabaseAdmin.from("notifications").insert(
+        [...recipients].map((userId) => ({
+          user_id: userId,
+          title,
+          body,
+          // Not /tickets/<id> — that page would 404 a moment from now.
+          link: "/tickets",
+        })),
+      );
+      await Promise.all(
+        [...recipients].map((userId) =>
+          sendPushToUser(userId, { title, body, url: "/tickets" }),
+        ),
+      );
+    }
+
+    const { error } = await supabaseAdmin.from("tickets").delete().eq("id", data.ticketId);
+    if (error) throw new Error(error.message);
+
+    return { ticketNo: ticket.ticket_no, notified: recipients.size };
+  });
