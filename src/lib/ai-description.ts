@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { extractJson } from "@/lib/ai-json";
 import { z } from "zod";
 
 const inputSchema = z.object({
@@ -105,7 +106,7 @@ export const generateIssueDescription = createServerFn({ method: "POST" })
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "llama-3.1-8b-instant",
+        model: "openai/gpt-oss-20b",
         temperature: 0.2,
         max_completion_tokens: 120,
         messages: [
@@ -160,10 +161,13 @@ export const analyzeIssueScreenshot = createServerFn({ method: "POST" })
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
+        // The only vision-capable model on this account. It is a reasoning
+        // model and rejects response_format: json_object, so its thinking is
+        // hidden instead and the JSON is pulled out of the reply.
         model: "qwen/qwen3.6-27b",
         temperature: 0.1,
-        max_completion_tokens: 350,
-        response_format: { type: "json_object" },
+        max_completion_tokens: 900,
+        reasoning_format: "hidden",
         messages: [
           {
             role: "system",
@@ -198,7 +202,7 @@ export const analyzeIssueScreenshot = createServerFn({ method: "POST" })
 
     let parsed: unknown;
     try {
-      parsed = JSON.parse(content.replace(/^```json\s*|\s*```$/g, ""));
+      parsed = extractJson(content);
     } catch {
       throw new Error("AI returned an invalid screenshot analysis. Please try again.");
     }
@@ -232,7 +236,7 @@ export const interpretGuidedReport = createServerFn({ method: "POST" })
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "llama-3.1-8b-instant",
+        model: "openai/gpt-oss-20b",
         temperature: 0.2,
         max_completion_tokens: 300,
         response_format: { type: "json_object" },
@@ -268,7 +272,7 @@ Number of people affected: ${data.affectedUsers}`,
 
     let parsed: unknown;
     try {
-      parsed = JSON.parse(content.replace(/^```json\s*|\s*```$/g, ""));
+      parsed = extractJson(content);
     } catch {
       throw new Error("AI returned an invalid response. Please try again.");
     }
@@ -303,7 +307,7 @@ export const summarizeChatForTicket = createServerFn({ method: "POST" })
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "llama-3.1-8b-instant",
+        model: "openai/gpt-oss-20b",
         temperature: 0.2,
         max_completion_tokens: 300,
         response_format: { type: "json_object" },
@@ -332,7 +336,7 @@ Return JSON only with: title, description, category, priority.
 
     let parsed: unknown;
     try {
-      parsed = JSON.parse(content.replace(/^```json\s*|\s*```$/g, ""));
+      parsed = extractJson(content);
     } catch {
       throw new Error("AI returned an invalid response. Please try again.");
     }

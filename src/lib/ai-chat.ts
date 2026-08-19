@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { extractJson } from "@/lib/ai-json";
 import { z } from "zod";
 
 const chatMessageSchema = z.object({
@@ -100,7 +101,9 @@ async function loadRelevantKbContext(conversationText: string): Promise<string> 
 // Tried in order; if the first model errors, is rate-limited, or returns a
 // response that doesn't parse as valid JSON, the next one is tried instead
 // of surfacing an error to the employee.
-const FALLBACK_MODELS = ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"];
+// Groq retired both Llama models this used to call, which is why every AI
+// feature stopped at once. These two are their replacements on the account.
+const FALLBACK_MODELS = ["openai/gpt-oss-120b", "openai/gpt-oss-20b"];
 const RECENT_MESSAGE_COUNT = 12;
 
 async function callGroq(
@@ -135,7 +138,7 @@ async function callGroq(
   const content = payload.choices?.[0]?.message?.content?.trim();
   if (!content) throw new Error(`AI model ${model} returned an empty response.`);
 
-  const parsed: unknown = JSON.parse(content.replace(/^```json\s*|\s*```$/g, ""));
+  const parsed: unknown = extractJson(content);
   return chatResultSchema.parse(parsed);
 }
 
