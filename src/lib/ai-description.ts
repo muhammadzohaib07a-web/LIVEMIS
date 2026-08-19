@@ -108,7 +108,8 @@ export const generateIssueDescription = createServerFn({ method: "POST" })
       body: JSON.stringify({
         model: "openai/gpt-oss-20b",
         temperature: 0.2,
-        max_completion_tokens: 120,
+        reasoning_effort: "low",
+        max_completion_tokens: 600,
         messages: [
           {
             role: "system",
@@ -238,7 +239,8 @@ export const interpretGuidedReport = createServerFn({ method: "POST" })
       body: JSON.stringify({
         model: "openai/gpt-oss-20b",
         temperature: 0.2,
-        max_completion_tokens: 300,
+        reasoning_effort: "low",
+        max_completion_tokens: 900,
         response_format: { type: "json_object" },
         messages: [
           {
@@ -309,7 +311,8 @@ export const summarizeChatForTicket = createServerFn({ method: "POST" })
       body: JSON.stringify({
         model: "openai/gpt-oss-20b",
         temperature: 0.2,
-        max_completion_tokens: 300,
+        reasoning_effort: "low",
+        max_completion_tokens: 900,
         response_format: { type: "json_object" },
         messages: [
           {

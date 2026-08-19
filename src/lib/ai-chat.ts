@@ -121,7 +121,12 @@ async function callGroq(
     body: JSON.stringify({
       model,
       temperature: 0.2,
-      max_completion_tokens: 450,
+      // The replacement models reason before they answer, and those reasoning
+      // tokens are charged against max_completion_tokens. At the old ceiling a
+      // question could spend the whole budget thinking and return nothing at
+      // all, so keep the thinking short and leave real headroom for the reply.
+      reasoning_effort: "low",
+      max_completion_tokens: 1200,
       response_format: { type: "json_object" },
       messages: [
         { role: "system", content: systemPrompt },
