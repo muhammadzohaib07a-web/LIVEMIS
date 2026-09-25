@@ -1202,12 +1202,39 @@ function TicketDetail() {
 
   return (
     <>
-      <Link
-        to="/tickets"
-        className="mb-4 inline-flex items-center gap-1.5 text-sm text-muted-foreground transition hover:text-foreground"
-      >
-        <ArrowLeft className="h-4 w-4" /> Back to tickets
-      </Link>
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <Link
+          to="/tickets"
+          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition hover:text-foreground"
+        >
+          <ArrowLeft className="h-4 w-4" /> Back to tickets
+        </Link>
+
+        {/* Assignment sits up here rather than in a card further down: it is the
+            first thing the MIS Head does on a ticket, and it was previously
+            below the fold on a long ticket. */}
+        {role === "admin" && (
+          <Select value={ticket.assignee_id ?? undefined} onValueChange={assignTicket}>
+            <SelectTrigger
+              key={ticket.assignee_id ?? "unassigned"}
+              aria-label="Assign an MIS agent"
+              title="Assign an MIS agent"
+              className="h-8 w-auto max-w-[15rem] animate-status-pop gap-1.5 rounded-full border-primary/30 bg-primary/5 px-3 text-xs font-medium shadow-none"
+              style={{ "--pop-glow": "var(--color-primary)" } as React.CSSProperties}
+            >
+              <UserCheck className="h-3.5 w-3.5 shrink-0 text-primary" />
+              <SelectValue placeholder="Assign agent" />
+            </SelectTrigger>
+            <SelectContent align="end">
+              {agents.map((agent) => (
+                <SelectItem key={agent.id} value={agent.id}>
+                  {agent.full_name ?? agent.email ?? "MIS Agent"} ({agent.assigned_count})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+      </div>
 
       <div className="gap-6 lg:flex lg:h-[calc(100vh-9.5rem)]">
         <div className="space-y-6 scrollbar-none lg:w-[60%] lg:min-w-0 lg:overflow-y-auto lg:pr-1">
@@ -1477,33 +1504,6 @@ function TicketDetail() {
                   <RotateCcw className="mr-2 h-4 w-4" /> Create Follow-up
                 </Button>
               )}
-            </div>
-          )}
-
-          {role === "admin" && (
-            <div
-              key={ticket.assignee_id ?? "unassigned"}
-              className="animate-status-pop rounded-2xl border border-primary/30 bg-primary/5 p-5"
-              style={{ "--pop-glow": "var(--color-primary)" } as React.CSSProperties}
-            >
-              <h3 className="flex items-center gap-2 text-sm font-semibold">
-                <UserCheck className="h-4 w-4" /> MIS Head Assignment
-              </h3>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Select the MIS agent responsible for this issue.
-              </p>
-              <Select value={ticket.assignee_id ?? undefined} onValueChange={assignTicket}>
-                <SelectTrigger className="mt-3">
-                  <SelectValue placeholder="Assign an MIS agent" />
-                </SelectTrigger>
-                <SelectContent>
-                  {agents.map((agent) => (
-                    <SelectItem key={agent.id} value={agent.id}>
-                      {agent.full_name ?? agent.email ?? "MIS Agent"} ({agent.assigned_count})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
             </div>
           )}
 
