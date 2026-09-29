@@ -541,7 +541,7 @@ function Dashboard() {
           {isMisStaff(role) ? (
             <>
               <Ticket className="h-4 w-4" />
-              {role === "admin" ? "Manage MIS Queue" : "View Assigned Tickets"}
+              {role === "admin" ? "Manage MIS Queue" : "View All Tickets"}
             </>
           ) : (
             <>
@@ -916,24 +916,28 @@ function Dashboard() {
               desc="Open a new ticket with AI-assisted triage."
             />
           )}
+          {/* /tickets now opens on the full company list, so this says so.
+              The personal cut gets its own entry below rather than being the
+              only way in. */}
           <QuickAction
             to="/tickets"
             icon={MessageSquare}
-            title={
-              role === "admin"
-                ? "MIS Head queue"
-                : role === "agent"
-                  ? "Assigned tickets"
-                  : "My tickets"
-            }
+            title={role === "admin" ? "MIS Head queue" : "All company tickets"}
             desc={
               role === "admin"
                 ? "Assign and manage every department request."
-                : role === "agent"
-                  ? "Work on tickets assigned by the MIS Head."
-                  : "Track status and chat with MIS support."
+                : "Browse every request raised across the company and read any ticket."
             }
           />
+          {role !== "admin" && (
+            <QuickAction
+              to="/tickets"
+              icon={Ticket}
+              onClick={() => sessionStorage.setItem(TICKETS_INITIAL_TAB_KEY, "reported")}
+              title="My tickets"
+              desc="Only the ones you raised — track status and chat with MIS."
+            />
+          )}
           <QuickAction
             to="/kb"
             icon={BookOpen}
@@ -960,15 +964,20 @@ function QuickAction({
   icon: Icon,
   title,
   desc,
+  onClick,
 }: {
   to: "/report" | "/tickets" | "/kb";
   icon: typeof Ticket;
   title: string;
   desc: string;
+  // Used to preselect a tab on the destination, e.g. landing /tickets on
+  // "Reported by Me" instead of the full list.
+  onClick?: () => void;
 }) {
   return (
     <Link
       to={to}
+      onClick={onClick}
       className="group flex items-start gap-3 rounded-2xl border border-border/60 bg-surface/60 p-4 backdrop-blur transition hover:border-primary/50 hover:bg-surface"
     >
       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-primary text-primary-foreground shadow-elegant">
