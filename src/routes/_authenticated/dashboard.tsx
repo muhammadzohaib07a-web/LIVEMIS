@@ -107,11 +107,13 @@ const PRIORITY_ACTIVE_TONE: Record<string, string> = {
   low: "border-border bg-muted/30 text-muted-foreground",
 };
 
+// What counts as "my work" for the dashboard's My Work view. Everyone can read
+// every ticket now, so this is no longer about permission — it is the personal
+// cut of the numbers, and the Whole Company view ignores it entirely.
 function ticketsVisibleTo(role: AppRole, userId: string, tickets: TicketRow[]) {
   if (role === "admin") return tickets;
-  // Agents see tickets assigned to them, plus any they reported themselves
-  // (an agent-reported ticket goes to the MIS Head just like an employee's —
-  // it's not visible to other agents until the Head assigns it).
+  // An agent's own work is what the Head assigned them, plus anything they
+  // raised themselves.
   if (role === "agent")
     return tickets.filter(
       (ticket) => ticket.assignee_id === userId || ticket.user_id === userId,
@@ -122,6 +124,10 @@ function ticketsVisibleTo(role: AppRole, userId: string, tickets: TicketRow[]) {
 function Dashboard() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [tickets, setTickets] = useState<TicketRow[]>([]);
+  // Whose tickets the whole dashboard is about. Opens on the personal view so
+  // the numbers still mean what they used to; one click widens it to everyone.
+  // The MIS Head has always seen the whole company, so this never applies.
+  const [scope, setScope] = useState<"mine" | "company">("mine");
   const [role, setRole] = useState<AppRole>("employee");
   const [loadingTickets, setLoadingTickets] = useState(true);
   const [newAssignments, setNewAssignments] = useState<NotificationRow[]>([]);
@@ -157,8 +163,9 @@ function Dashboard() {
         email: context.email,
       });
       if (isPreviewMode()) {
+        // Same as the live fetch: hold everything, let the scope switch narrow.
         const refreshPreview = () => {
-          setTickets(ticketsVisibleTo(context.role, context.id, getCurrentPreviewTickets()));
+          setTickets(getCurrentPreviewTickets());
         };
         refreshPreview();
         previewChannel = new BroadcastChannel("mis-support-preview-ticket-updates");
@@ -186,13 +193,14 @@ function Dashboard() {
         setLoadingTickets(false);
         return;
       }
-      let query = supabase.from("tickets").select("*").order("created_at", { ascending: false });
-      if (context.role === "agent") {
-        // Assigned to them, plus any ticket they reported themselves.
-        query = query.or(`assignee_id.eq.${context.id},user_id.eq.${context.id}`);
-      } else if (context.role === "employee") {
-        query = query.eq("user_id", context.id);
-      }
+      // Everything is fetched; the My Work / Whole Company switch narrows it
+      // in the browser. Pulling only the caller's own rows would make that
+      // switch need a second round-trip for no reason — reading is open to
+      // every signed-in user now.
+      const query = supabase
+        .from("tickets")
+        .select("*")
+        .order("created_at", { ascending: false });
       const { data: t } = await query;
       setTickets(t ?? []);
       setLoadingTickets(false);
@@ -250,10 +258,10 @@ function Dashboard() {
               const deleted = payload.old as Pick<TicketRow, "id">;
               return current.filter((ticket) => ticket.id !== deleted.id);
             }
+            // Every ticket is readable, so anything that arrives belongs here;
+            // the scope switch decides what is actually shown.
             const changed = payload.new as TicketRow;
-            const visible = ticketsVisibleTo(context.role, context.id, [changed]).length === 1;
             const exists = current.some((ticket) => ticket.id === changed.id);
-            if (!visible) return current.filter((ticket) => ticket.id !== changed.id);
             if (exists) {
               return current.map((ticket) => (ticket.id === changed.id ? changed : ticket));
             }
@@ -304,7 +312,7 @@ function Dashboard() {
     );
   }, [feedbackReminders, role]);
 
-  const dashboardCopy = {
+  let dashboardCopy = {
     employee: {
       heading: "My Support Dashboard",
       description:
@@ -357,16 +365,37 @@ function Dashboard() {
     },
   }[role];
 
+  // In the Whole Company view the per-role wording ("My requests", "Assigned
+  // workload") would describe the wrong set, so the labels follow the switch.
+  if (scope === "company" && role !== "admin") {
+    dashboardCopy = {
+      ...dashboardCopy,
+      heading: "Company Support Dashboard",
+      description:
+        "Every MIS request raised across the company — what is open, what is being worked on, and what has been resolved.",
+      statLabels: { ...dashboardCopy.statLabels, total: "All company tickets" },
+      statusChart: "Company request status",
+      categoryChart: "Issues by category",
+      trendChart: "14-day company request volume",
+    };
+  }
+
   // Agents both work assigned tickets and can report their own — the stat
   // cards below are the agent's work queue, so they're scoped to tickets
   // actually assigned to this agent. Self-reported tickets are surfaced
   // separately via the "Total Reported" card instead of inflating these.
   // Memoized so downstream useMemos (filtered/statusData) get a stable
   // reference instead of recomputing every render.
-  const assignedTickets = useMemo(
-    () => (role === "agent" ? tickets.filter((t) => t.assignee_id === me) : tickets),
-    [role, tickets, me],
-  );
+  // Everything below — the stat tiles, the charts, the recent list — reads off
+  // this one set, so the scope switch only has to change what goes into it.
+  const assignedTickets = useMemo(() => {
+    if (role === "admin" || scope === "company") return tickets;
+    // "My work" for an agent is what they were assigned; a self-reported
+    // ticket is counted separately on the Total Reported card instead of
+    // inflating the work queue.
+    if (role === "agent") return tickets.filter((t) => t.assignee_id === me);
+    return tickets.filter((t) => t.user_id === me);
+  }, [role, scope, tickets, me]);
   const reportedByMeCount =
     role === "agent" ? tickets.filter((t) => t.user_id === me).length : 0;
 
@@ -491,16 +520,18 @@ function Dashboard() {
 
   const isFiltering = Boolean(activeStatus || activeCategory || activePriority);
   const recent = isFiltering ? filtered : filtered.slice(0, 5);
-  const scopeLabel =
-    role === "admin"
-      ? "All department requests"
-      : role === "agent"
-        ? "Tickets assigned to you"
-        : "Your submitted requests";
+  const showingCompany = role === "admin" || scope === "company";
+  const scopeLabel = showingCompany
+    ? "All department requests"
+    : role === "agent"
+      ? "Tickets assigned to you"
+      : "Your submitted requests";
   const recentTitle = isFiltering
     ? `${filtered.length} matching ticket${filtered.length === 1 ? "" : "s"}`
-    : role === "admin"
-      ? "Recent MIS queue tickets"
+    : showingCompany
+      ? role === "admin"
+        ? "Recent MIS queue tickets"
+        : "Recent company tickets"
       : role === "agent"
         ? "Recently assigned tickets"
         : "My recent tickets";
@@ -550,6 +581,41 @@ function Dashboard() {
           )}
         </Link>
       </div>
+
+      {/* The MIS Head's dashboard has always covered the whole company, so the
+          switch is for everyone else. It drives every number on this page. */}
+      {role !== "admin" && !loadingTickets && (
+        <div className="mb-6">
+          <div className="inline-flex rounded-xl border border-border/60 bg-surface/40 p-1">
+            {(
+              [
+                { key: "mine", label: role === "agent" ? "My Work" : "My Tickets" },
+                { key: "company", label: "Whole Company" },
+              ] as const
+            ).map((option) => (
+              <button
+                key={option.key}
+                type="button"
+                onClick={() => setScope(option.key)}
+                className={`rounded-lg px-4 py-1.5 text-sm font-semibold transition ${
+                  scope === option.key
+                    ? "bg-primary text-primary-foreground shadow-elegant"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+          <p className="mt-2 text-xs text-muted-foreground">
+            {scope === "company"
+              ? "Every number below counts tickets from every department."
+              : role === "agent"
+                ? "Every number below counts only the tickets assigned to you."
+                : "Every number below counts only the tickets you raised."}
+          </p>
+        </div>
+      )}
 
       {role === "agent" && newAssignments.length > 0 && (
         <div className="mb-6 rounded-2xl border border-warning/40 bg-warning/10 p-5">
