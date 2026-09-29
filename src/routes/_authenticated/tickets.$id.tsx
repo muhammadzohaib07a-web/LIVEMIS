@@ -922,7 +922,10 @@ function TicketDetail() {
   };
 
   const updateStatus = async (s: Status) => {
-    const canManage = role === "admin" || (role === "agent" && ticket?.assignee_id === me);
+    // Status is the MIS Head's alone. An agent works the ticket and replies in
+    // chat, but does not move it — see the matching database policy in
+    // 20260929120000_everyone_can_read_every_ticket.sql.
+    const canManage = role === "admin";
     const canGiveCustomerFeedback =
       (role === "employee" || role === "agent") &&
       ticket?.user_id === me &&
@@ -1178,7 +1181,12 @@ function TicketDetail() {
   const nextStatuses = MIS_STATUS_TRANSITIONS[ticket.status].filter(
     (status) => (status !== "closed" && status !== "canceled") || role === "admin",
   );
-  const canManageStatus = role === "admin" || (role === "agent" && ticket.assignee_id === me);
+  // Only the MIS Head moves a ticket. Agents read and reply, nothing else.
+  const canManageStatus = role === "admin";
+  // Everyone can now open every ticket, but replying is unchanged: the person
+  // who raised it, plus MIS staff. Without this the composer would show to a
+  // bystander and the insert would simply be refused by the database.
+  const canReply = role === "admin" || role === "agent" || ticket.user_id === me;
   const canGiveFeedback =
     (role === "employee" || role === "agent") &&
     ticket.user_id === me &&
@@ -1243,9 +1251,11 @@ function TicketDetail() {
             <p className="mt-1 text-xs text-muted-foreground">
               {role === "admin"
                 ? "Move the ticket through the approved support lifecycle."
-                : role === "agent" && ticket.assignee_id === me
-                  ? "Move your assigned ticket to its next valid stage."
-                  : "MIS will update the progress of your request."}
+                : role === "agent"
+                  ? "The MIS Head moves this ticket. You can reply in the conversation."
+                  : ticket.user_id === me
+                    ? "MIS will update the progress of your request."
+                    : "MIS will update the progress of this request."}
             </p>
             <p className="mt-3 text-[10px] leading-relaxed text-muted-foreground">
               Open → In Progress → Answered → Awaiting Customer Feedback → Closed
@@ -1820,7 +1830,16 @@ function TicketDetail() {
               })
             )}
           </div>
-          <form onSubmit={send} className="border-t border-border/60 p-3">
+          {!canReply && (
+            <div className="border-t border-border/60 p-4 text-center text-xs text-muted-foreground">
+              You're viewing this ticket. Only the person who raised it and the MIS team can
+              reply here.
+            </div>
+          )}
+          <form
+            onSubmit={send}
+            className={`border-t border-border/60 p-3 ${canReply ? "" : "hidden"}`}
+          >
             {pendingFiles.length > 0 && (
               <div className="mb-2 flex flex-wrap gap-2">
                 {pendingFiles.map((file, index) => (

@@ -400,10 +400,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               >
                 <span className="flex items-center gap-3">
                   <item.icon className="h-4 w-4" />
+                  {/* Agents and employees both land on the full list now, so
+                      neither "Assigned Tickets" nor "My Tickets" fits. */}
                   {item.to === "/tickets" && role === "admin"
                     ? "Head Queue"
-                    : item.to === "/tickets" && role === "agent"
-                      ? "Assigned Tickets"
+                    : item.to === "/tickets"
+                      ? "All Tickets"
                       : item.label}
                 </span>
                 {item.to === "/notifications" && unread > 0 && (

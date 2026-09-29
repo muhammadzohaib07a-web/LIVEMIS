@@ -78,18 +78,19 @@ function TicketsList() {
   const [role, setRole] = useState<AppRole>("employee");
   const [me, setMe] = useState<string | null>(null);
   const [requesters, setRequesters] = useState<Record<string, Requester>>({});
-  // Agents both work assigned tickets and can report their own — kept as
-  // separate tabs so a self-reported ticket never gets mixed into the queue
-  // of things they're supposed to be resolving for someone else. Landing on
-  // "reported" is a one-shot deep-link (e.g. the dashboard's "Total Reported"
-  // card) — consume the flag once so a normal visit still defaults to "assigned".
-  const [agentView, setAgentView] = useState<"assigned" | "reported">(() => {
-    if (typeof window === "undefined") return "assigned";
+  // Everyone can read every ticket now, so the list opens on "all". The other
+  // tabs are the personal cuts of the same list: what an agent has been given
+  // to work, and what the person raised themselves — an agent's own report
+  // should never get mixed into the queue they are meant to be resolving.
+  // Landing on "reported" is a one-shot deep-link (e.g. the dashboard's "Total
+  // Reported" card) — consume the flag once so a normal visit still opens all.
+  const [listView, setListView] = useState<"all" | "assigned" | "reported">(() => {
+    if (typeof window === "undefined") return "all";
     if (sessionStorage.getItem(TICKETS_INITIAL_TAB_KEY) === "reported") {
       sessionStorage.removeItem(TICKETS_INITIAL_TAB_KEY);
       return "reported";
     }
-    return "assigned";
+    return "all";
   });
   // The realtime subscription below is created once on mount, before the
   // async context/role lookup resolves, so it can't close over role/me state
@@ -187,31 +188,30 @@ function TicketsList() {
       roleRef.current = context.role;
       meRef.current = context.id;
       if (isPreviewMode()) {
-        const previewTickets = getCurrentPreviewTickets();
-        setTickets(
-          context.role === "admin"
-            ? previewTickets
-            : context.role === "agent"
-              ? previewTickets.filter(
-                  (ticket) =>
-                    ticket.assignee_id === context.id || ticket.user_id === context.id,
-                )
-              : previewTickets.filter((ticket) => ticket.user_id === context.id),
-        );
+        // Same rule as the live query below: every role gets every ticket, and
+        // the tabs do the narrowing. Preview used to filter per role here,
+        // which would have made the demo disagree with the real thing.
+        setTickets(getCurrentPreviewTickets());
         setRequesters(previewRequesters);
         setLoading(false);
         return;
       }
-      let query = supabase.from("tickets").select("*").order("created_at", { ascending: false });
-      if (context.role === "agent") {
-        // Assigned to them, plus any ticket they reported themselves — an
-        // agent-reported ticket goes to the MIS Head, not to other agents.
-        query = query.or(`assignee_id.eq.${context.id},user_id.eq.${context.id}`);
-      }
+      // Everyone sees every ticket here. Reading is open to all signed-in
+      // users (see 20260929120000_everyone_can_read_every_ticket.sql); the
+      // per-role filter that used to narrow this list is gone. Who may reply,
+      // assign or change a status has NOT changed — that is still enforced by
+      // the write policies and by the controls on the ticket page.
+      const query = supabase
+        .from("tickets")
+        .select("*")
+        .order("created_at", { ascending: false });
       const { data } = await query;
       const rows = data ?? [];
       setTickets(rows);
-      if (isMisStaff(context.role) && rows.length > 0) {
+      // Everyone sees everyone's tickets now, so everyone needs the names to
+      // go with them — this used to be fetched for MIS staff only, which would
+      // leave an employee looking at a list of unattributed rows.
+      if (rows.length > 0) {
         const userIds = [
           ...new Set([
             ...rows.map((ticket) => ticket.user_id),
@@ -245,10 +245,12 @@ function TicketsList() {
     };
   }, []);
 
+  // The MIS Head has its own queue filters below, so the tabs are for the
+  // other two roles.
   const agentScoped =
-    role === "agent"
+    role !== "admin" && listView !== "all"
       ? tickets.filter((t) =>
-          agentView === "assigned" ? t.assignee_id === me : t.user_id === me,
+          listView === "assigned" ? t.assignee_id === me : t.user_id === me,
         )
       : tickets;
 
@@ -336,20 +338,20 @@ function TicketsList() {
               <p className="text-sm text-muted-foreground">
                 {role === "admin"
                   ? "Assign requests from all departments to MIS agents"
-                  : role === "agent"
-                    ? agentView === "assigned"
-                      ? "Tickets assigned to you by the MIS Head"
-                      : "Tickets you've reported to the MIS Head"
-                    : "Your requests to MIS"}
+                  : listView === "assigned"
+                    ? "Tickets assigned to you by the MIS Head"
+                    : listView === "reported"
+                      ? "Tickets you've reported to MIS"
+                      : "Every request raised across the company"}
               </p>
               <h1 className="text-3xl font-black tracking-tight sm:text-4xl">
                 {role === "admin"
                   ? "MIS Head Queue"
-                  : role === "agent"
-                    ? agentView === "assigned"
-                      ? "My Assigned Tickets"
-                      : "Tickets I Reported"
-                    : "My Tickets"}
+                  : listView === "assigned"
+                    ? "My Assigned Tickets"
+                    : listView === "reported"
+                      ? "Tickets I Reported"
+                      : "All Tickets"}
               </h1>
             </>
           )}
@@ -374,30 +376,31 @@ function TicketsList() {
         )}
       </div>
 
-      {role === "agent" && (
+      {role !== "admin" && (
         <div className="mb-4 inline-flex rounded-xl border border-border/60 bg-surface/40 p-1">
-          <button
-            type="button"
-            onClick={() => setAgentView("assigned")}
-            className={`rounded-lg px-4 py-1.5 text-sm font-semibold transition ${
-              agentView === "assigned"
-                ? "bg-primary text-primary-foreground shadow-elegant"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            Assigned to Me
-          </button>
-          <button
-            type="button"
-            onClick={() => setAgentView("reported")}
-            className={`rounded-lg px-4 py-1.5 text-sm font-semibold transition ${
-              agentView === "reported"
-                ? "bg-primary text-primary-foreground shadow-elegant"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            Reported by Me
-          </button>
+          {(
+            [
+              { key: "all", label: "All Tickets" },
+              // Only agents are assigned work; an employee has no such list.
+              ...(role === "agent"
+                ? ([{ key: "assigned", label: "Assigned to Me" }] as const)
+                : []),
+              { key: "reported", label: "Reported by Me" },
+            ] as const
+          ).map((tab) => (
+            <button
+              key={tab.key}
+              type="button"
+              onClick={() => setListView(tab.key)}
+              className={`rounded-lg px-4 py-1.5 text-sm font-semibold transition ${
+                listView === tab.key
+                  ? "bg-primary text-primary-foreground shadow-elegant"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
       )}
 
