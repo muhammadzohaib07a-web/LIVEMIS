@@ -107,20 +107,6 @@ const PRIORITY_ACTIVE_TONE: Record<string, string> = {
   low: "border-border bg-muted/30 text-muted-foreground",
 };
 
-// What counts as "my work" for the dashboard's My Work view. Everyone can read
-// every ticket now, so this is no longer about permission — it is the personal
-// cut of the numbers, and the Whole Company view ignores it entirely.
-function ticketsVisibleTo(role: AppRole, userId: string, tickets: TicketRow[]) {
-  if (role === "admin") return tickets;
-  // An agent's own work is what the Head assigned them, plus anything they
-  // raised themselves.
-  if (role === "agent")
-    return tickets.filter(
-      (ticket) => ticket.assignee_id === userId || ticket.user_id === userId,
-    );
-  return tickets.filter((ticket) => ticket.user_id === userId);
-}
-
 function Dashboard() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [tickets, setTickets] = useState<TicketRow[]>([]);
@@ -163,9 +149,15 @@ function Dashboard() {
         email: context.email,
       });
       if (isPreviewMode()) {
-        // Same as the live fetch: hold everything, let the scope switch narrow.
+        // Same as the live fetch: MIS staff hold everything and let the scope
+        // switch narrow; an employee holds only their own.
         const refreshPreview = () => {
-          setTickets(getCurrentPreviewTickets());
+          const all = getCurrentPreviewTickets();
+          setTickets(
+            isMisStaff(context.role)
+              ? all
+              : all.filter((ticket) => ticket.user_id === context.id),
+          );
         };
         refreshPreview();
         previewChannel = new BroadcastChannel("mis-support-preview-ticket-updates");
@@ -193,14 +185,14 @@ function Dashboard() {
         setLoadingTickets(false);
         return;
       }
-      // Everything is fetched; the My Work / Whole Company switch narrows it
-      // in the browser. Pulling only the caller's own rows would make that
-      // switch need a second round-trip for no reason — reading is open to
-      // every signed-in user now.
-      const query = supabase
-        .from("tickets")
-        .select("*")
-        .order("created_at", { ascending: false });
+      // MIS staff get everything, and the agent's My Work / All Departments
+      // switch narrows it in the browser rather than making a second trip. An
+      // employee is scoped by the read policy to their own tickets anyway; the
+      // explicit filter keeps that true even if the policy is ever loosened.
+      let query = supabase.from("tickets").select("*").order("created_at", { ascending: false });
+      if (!isMisStaff(context.role)) {
+        query = query.eq("user_id", context.id);
+      }
       const { data: t } = await query;
       setTickets(t ?? []);
       setLoadingTickets(false);
@@ -365,9 +357,10 @@ function Dashboard() {
     },
   }[role];
 
-  // In the Whole Company view the per-role wording ("My requests", "Assigned
-  // workload") would describe the wrong set, so the labels follow the switch.
-  if (scope === "company" && role !== "admin") {
+  // In the All Departments view the agent's wording ("Assigned workload",
+  // "Total Assigned") would describe the wrong set, so labels follow the
+  // switch. Only agents have the switch, so only they reach this.
+  if (scope === "company" && role === "agent") {
     dashboardCopy = {
       ...dashboardCopy,
       heading: "Company Support Dashboard",
@@ -389,7 +382,7 @@ function Dashboard() {
   // Everything below — the stat tiles, the charts, the recent list — reads off
   // this one set, so the scope switch only has to change what goes into it.
   const assignedTickets = useMemo(() => {
-    if (role === "admin" || scope === "company") return tickets;
+    if (role === "admin" || (role === "agent" && scope === "company")) return tickets;
     // "My work" for an agent is what they were assigned; a self-reported
     // ticket is counted separately on the Total Reported card instead of
     // inflating the work queue.
@@ -520,7 +513,7 @@ function Dashboard() {
 
   const isFiltering = Boolean(activeStatus || activeCategory || activePriority);
   const recent = isFiltering ? filtered : filtered.slice(0, 5);
-  const showingCompany = role === "admin" || scope === "company";
+  const showingCompany = role === "admin" || (role === "agent" && scope === "company");
   const scopeLabel = showingCompany
     ? "All department requests"
     : role === "agent"
@@ -582,15 +575,16 @@ function Dashboard() {
         </Link>
       </div>
 
-      {/* The MIS Head's dashboard has always covered the whole company, so the
-          switch is for everyone else. It drives every number on this page. */}
-      {role !== "admin" && !loadingTickets && (
+      {/* Agents only. The MIS Head's dashboard already covers everything, and
+          an employee's is about their own requests. It drives every number on
+          this page. */}
+      {role === "agent" && !loadingTickets && (
         <div className="mb-6">
           <div className="inline-flex rounded-xl border border-border/60 bg-surface/40 p-1">
             {(
               [
-                { key: "mine", label: role === "agent" ? "My Work" : "My Tickets" },
-                { key: "company", label: "Whole Company" },
+                { key: "mine", label: "My Work" },
+                { key: "company", label: "All Departments" },
               ] as const
             ).map((option) => (
               <button
@@ -610,9 +604,7 @@ function Dashboard() {
           <p className="mt-2 text-xs text-muted-foreground">
             {scope === "company"
               ? "Every number below counts tickets from every department."
-              : role === "agent"
-                ? "Every number below counts only the tickets assigned to you."
-                : "Every number below counts only the tickets you raised."}
+              : "Every number below counts only the tickets assigned to you."}
           </p>
         </div>
       )}
@@ -982,26 +974,31 @@ function Dashboard() {
               desc="Open a new ticket with AI-assisted triage."
             />
           )}
-          {/* /tickets now opens on the full company list, so this says so.
-              The personal cut gets its own entry below rather than being the
-              only way in. */}
           <QuickAction
             to="/tickets"
             icon={MessageSquare}
-            title={role === "admin" ? "MIS Head queue" : "All company tickets"}
+            title={
+              role === "admin"
+                ? "MIS Head queue"
+                : role === "agent"
+                  ? "All company tickets"
+                  : "My tickets"
+            }
             desc={
               role === "admin"
                 ? "Assign and manage every department request."
-                : "Browse every request raised across the company and read any ticket."
+                : role === "agent"
+                  ? "Every request raised across the company, plus the ones assigned to you."
+                  : "Track status and chat with MIS support."
             }
           />
-          {role !== "admin" && (
+          {role === "agent" && (
             <QuickAction
               to="/tickets"
               icon={Ticket}
               onClick={() => sessionStorage.setItem(TICKETS_INITIAL_TAB_KEY, "reported")}
-              title="My tickets"
-              desc="Only the ones you raised — track status and chat with MIS."
+              title="Tickets I reported"
+              desc="Only the ones you raised yourself."
             />
           )}
           <QuickAction

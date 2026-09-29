@@ -188,19 +188,21 @@ function TicketsList() {
       roleRef.current = context.role;
       meRef.current = context.id;
       if (isPreviewMode()) {
-        // Same rule as the live query below: every role gets every ticket, and
-        // the tabs do the narrowing. Preview used to filter per role here,
-        // which would have made the demo disagree with the real thing.
-        setTickets(getCurrentPreviewTickets());
+        // Mirrors the read policy: MIS staff see everything, an employee sees
+        // only what they raised.
+        const previewTickets = getCurrentPreviewTickets();
+        setTickets(
+          isMisStaff(context.role)
+            ? previewTickets
+            : previewTickets.filter((ticket) => ticket.user_id === context.id),
+        );
         setRequesters(previewRequesters);
         setLoading(false);
         return;
       }
-      // Everyone sees every ticket here. Reading is open to all signed-in
-      // users (see 20260929120000_everyone_can_read_every_ticket.sql); the
-      // per-role filter that used to narrow this list is gone. Who may reply,
-      // assign or change a status has NOT changed — that is still enforced by
-      // the write policies and by the controls on the ticket page.
+      // No client-side filter: the read policy decides what comes back. MIS
+      // staff get every ticket, an employee gets their own
+      // (20260929150000_only_agents_see_every_ticket.sql).
       const query = supabase
         .from("tickets")
         .select("*")
@@ -208,10 +210,9 @@ function TicketsList() {
       const { data } = await query;
       const rows = data ?? [];
       setTickets(rows);
-      // Everyone sees everyone's tickets now, so everyone needs the names to
-      // go with them — this used to be fetched for MIS staff only, which would
-      // leave an employee looking at a list of unattributed rows.
-      if (rows.length > 0) {
+      // Only MIS staff see other people's tickets, so only they need the names
+      // to go with them.
+      if (isMisStaff(context.role) && rows.length > 0) {
         const userIds = [
           ...new Set([
             ...rows.map((ticket) => ticket.user_id),
@@ -245,10 +246,10 @@ function TicketsList() {
     };
   }, []);
 
-  // The MIS Head has its own queue filters below, so the tabs are for the
-  // other two roles.
+  // The tabs belong to agents. The MIS Head has its own queue filters below,
+  // and an employee only ever has their own tickets to begin with.
   const agentScoped =
-    role !== "admin" && listView !== "all"
+    role === "agent" && listView !== "all"
       ? tickets.filter((t) =>
           listView === "assigned" ? t.assignee_id === me : t.user_id === me,
         )
@@ -338,20 +339,24 @@ function TicketsList() {
               <p className="text-sm text-muted-foreground">
                 {role === "admin"
                   ? "Assign requests from all departments to MIS agents"
-                  : listView === "assigned"
-                    ? "Tickets assigned to you by the MIS Head"
-                    : listView === "reported"
-                      ? "Tickets you've reported to MIS"
-                      : "Every request raised across the company"}
+                  : role !== "agent"
+                    ? "Your requests to MIS"
+                    : listView === "assigned"
+                      ? "Tickets assigned to you by the MIS Head"
+                      : listView === "reported"
+                        ? "Tickets you've reported to MIS"
+                        : "Every request raised across the company"}
               </p>
               <h1 className="text-3xl font-black tracking-tight sm:text-4xl">
                 {role === "admin"
                   ? "MIS Head Queue"
-                  : listView === "assigned"
-                    ? "My Assigned Tickets"
-                    : listView === "reported"
-                      ? "Tickets I Reported"
-                      : "All Tickets"}
+                  : role !== "agent"
+                    ? "My Tickets"
+                    : listView === "assigned"
+                      ? "My Assigned Tickets"
+                      : listView === "reported"
+                        ? "Tickets I Reported"
+                        : "All Tickets"}
               </h1>
             </>
           )}
@@ -376,15 +381,14 @@ function TicketsList() {
         )}
       </div>
 
-      {role !== "admin" && (
+      {/* Agents only. An employee sees just their own tickets, so there is
+          nothing for them to switch between. */}
+      {role === "agent" && (
         <div className="mb-4 inline-flex rounded-xl border border-border/60 bg-surface/40 p-1">
           {(
             [
               { key: "all", label: "All Tickets" },
-              // Only agents are assigned work; an employee has no such list.
-              ...(role === "agent"
-                ? ([{ key: "assigned", label: "Assigned to Me" }] as const)
-                : []),
+              { key: "assigned", label: "Assigned to Me" },
               { key: "reported", label: "Reported by Me" },
             ] as const
           ).map((tab) => (
