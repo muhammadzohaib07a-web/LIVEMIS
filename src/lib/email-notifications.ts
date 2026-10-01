@@ -106,54 +106,6 @@ export const notifyTicketAssigned = createServerFn({ method: "POST" })
     ]);
   });
 
-// Fires the moment MIS marks a ticket "Awaiting Customer Feedback": the
-// employee gets an email right away, not just after the 1hr reminder.
-export const notifyAwaitingFeedback = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .validator(ticketIdSchema)
-  .handler(async ({ data }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-
-    const { data: ticket } = await supabaseAdmin
-      .from("tickets")
-      .select("ticket_no, title, user_id")
-      .eq("id", data.ticketId)
-      .maybeSingle();
-    if (!ticket) return;
-
-    const { data: requester } = await supabaseAdmin
-      .from("profiles")
-      .select("email")
-      .eq("id", ticket.user_id)
-      .maybeSingle();
-    // profiles.email can be blank for older/manually-created accounts; auth.users
-    // always has the address the employee actually signs in with.
-    let recipientEmail = requester?.email ?? null;
-    if (!recipientEmail) {
-      const { data: authUser } = await supabaseAdmin.auth.admin.getUserById(ticket.user_id);
-      recipientEmail = authUser?.user?.email ?? null;
-    }
-    const link = `${APP_URL}/tickets/${data.ticketId}`;
-    const html = emailShell(
-      `Ticket ${ticket.ticket_no} needs your feedback`,
-      `<p style="margin:0 0 8px;">MIS believes this issue is resolved and is waiting for your confirmation.</p>
-       <p style="margin:4px 0;"><strong>Title:</strong> ${ticket.title}</p>
-       <p style="margin:12px 0 0;">Please confirm whether the issue is fixed, or let us know it's still not working.</p>`,
-      link,
-    );
-
-    await Promise.all([
-      recipientEmail
-        ? sendEmail(recipientEmail, `Ticket ${ticket.ticket_no} needs your feedback`, html)
-        : Promise.resolve(),
-      sendPushToUser(ticket.user_id, {
-        title: `Ticket ${ticket.ticket_no} needs your feedback`,
-        body: ticket.title,
-        url: `/tickets/${data.ticketId}`,
-      }),
-    ]);
-  });
-
 // Fires on every chat reply AND every status change (e.g. marked Answered):
 // push-only (no email for this one). Notifies everyone else in the ticket's
 // circle — reporter, assignee, every admin — minus whoever just acted. This

@@ -71,7 +71,6 @@ import {
 import { getCategoryLabel } from "@/lib/ticket-categories";
 import {
   formatAssignmentMessage,
-  formatDuration,
   formatStatusChangeMessage,
   getSlaState,
   isAssignmentMessage,
@@ -85,7 +84,6 @@ import {
 import { mentionOptionsForRole } from "@/lib/mentions";
 import {
   deleteTicketAsAdmin,
-  notifyAwaitingFeedback,
   notifyTicketActivity,
   notifyTicketAssigned,
 } from "@/lib/email-notifications";
@@ -245,10 +243,10 @@ export const Route = createFileRoute("/_authenticated/tickets/$id")({
   component: TicketDetail,
 });
 
-// How far an MIS agent may take a ticket on their own. Awaiting Customer
-// Feedback, the final Closed and Canceled stay with the MIS Head — mirrored in
+// An agent takes a ticket assigned to them all the way through and closes it
+// themselves. Cancelling stays with the MIS Head — mirrored in
 // protect_ticket_workflow_fields so hiding the buttons is not the only guard.
-const AGENT_MOVABLE_STATUSES: Status[] = ["in_progress", "answered"];
+const AGENT_MOVABLE_STATUSES: Status[] = ["in_progress", "answered", "closed"];
 
 const statusMeta: Record<Status, { label: string; icon: typeof Clock; cls: string }> = {
   open: { label: "Open", icon: AlertCircle, cls: "bg-warning/15 text-warning border-warning/30" },
@@ -294,7 +292,6 @@ function TicketDetail() {
   const [loading, setLoading] = useState(true);
   const [body, setBody] = useState("");
   const [sending, setSending] = useState(false);
-  const [confirmingFix, setConfirmingFix] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [role, setRole] = useState<AppRole>("employee");
   const [requester, setRequester] = useState<{
@@ -883,62 +880,13 @@ function TicketDetail() {
     }
   };
 
-  const confirmIssueFixed = async () => {
-    if (
-      !ticket ||
-      !me ||
-      (role !== "employee" && role !== "agent") ||
-      ticket.user_id !== me ||
-      ticket.status !== "awaiting_feedback"
-    )
-      return;
-    const confirmation = "✅ Customer confirmation: The issue is fixed. MIS Head may close it.";
-    setConfirmingFix(true);
-    if (isPreviewMode()) {
-      const message: Message = {
-        id: `preview-confirmation-${Date.now()}`,
-        ticket_id: id,
-        sender_id: me,
-        body: confirmation,
-        attachments: [],
-        created_at: new Date().toISOString(),
-      };
-      setMessages((current) => [...current, message]);
-      storePreviewMessage(message);
-      previewChannelRef.current?.postMessage(message);
-      setConfirmingFix(false);
-      toast.success("Confirmation sent to the MIS Head for final closure");
-      return;
-    }
-    const { error } = await supabase.from("ticket_messages").insert({
-      ticket_id: id,
-      sender_id: me,
-      body: confirmation,
-    });
-    setConfirmingFix(false);
-    if (error) {
-      toast.error(error.message);
-      return;
-    }
-    void notifyTicketActivity({ data: { ticketId: id } }).catch((notifyError) =>
-      console.error("Failed to send reply push notification", notifyError),
-    );
-    toast.success("Confirmation sent to the MIS Head for final closure");
-  };
-
   const updateStatus = async (s: Status) => {
-    // An agent moves the tickets the Head gave them, and nothing else. On the
-    // rest of the company's tickets — the ones they can now see but were not
-    // assigned — they read and reply only.
+    // Status belongs to MIS: the Head on any ticket, an agent on the ones
+    // assigned to them. On the other departments' tickets an agent can see,
+    // they read and reply only.
     const canManage = role === "admin" || (role === "agent" && ticket?.assignee_id === me);
-    const canGiveCustomerFeedback =
-      (role === "employee" || role === "agent") &&
-      ticket?.user_id === me &&
-      ticket.status === "awaiting_feedback" &&
-      (s === "closed" || s === "in_progress");
-    if (!canManage && !canGiveCustomerFeedback) return;
-    // An agent takes a ticket as far as Answered. Awaiting feedback, the final
-    // close and cancelling are the MIS Head's, even on an agent's own ticket.
+    if (!canManage) return;
+    // An agent closes their own ticket but cannot cancel one.
     if (role === "agent" && !AGENT_MOVABLE_STATUSES.includes(s)) return;
     const previousStatus = ticket?.status;
     if (isPreviewMode()) {
@@ -972,20 +920,12 @@ function TicketDetail() {
     if (error) return toast.error(error.message);
     setTicket((t) => (t ? { ...t, status: s } : t));
     if (s === "closed" || s === "resolved") burstConfetti();
-    if (s === "awaiting_feedback") {
-      void notifyAwaitingFeedback({ data: { ticketId: id } }).catch((notifyError) =>
-        console.error("Failed to send awaiting-feedback email:", notifyError),
-      );
-    } else {
-      // awaiting_feedback already gets its own dedicated push above — every
-      // other transition (e.g. marked Answered) still owes the other side a
-      // push, same as a chat reply would.
-      void notifyTicketActivity({
-        data: { ticketId: id, statusLabel: statusMeta[s].label },
-      }).catch((notifyError) =>
-        console.error("Failed to send status-change push notification", notifyError),
-      );
-    }
+    // Every transition owes the other side a push, same as a chat reply would.
+    void notifyTicketActivity({
+      data: { ticketId: id, statusLabel: statusMeta[s].label },
+    }).catch((notifyError) =>
+      console.error("Failed to send status-change push notification", notifyError),
+    );
     toast.success(`Marked ${statusMeta[s].label}`);
   };
 
@@ -1193,20 +1133,6 @@ function TicketDetail() {
   // who raised it, plus MIS staff. Without this the composer would show to a
   // bystander and the insert would simply be refused by the database.
   const canReply = role === "admin" || role === "agent" || ticket.user_id === me;
-  const canGiveFeedback =
-    (role === "employee" || role === "agent") &&
-    ticket.user_id === me &&
-    ticket.status === "awaiting_feedback";
-  // Only count a confirmation sent during the *current* awaiting_feedback cycle: a ticket
-  // can cycle through awaiting_feedback more than once, and ticket.updated_at is bumped
-  // every time the tickets row changes (including the transition into this status), so a
-  // confirmation from an earlier round always predates it.
-  const customerConfirmed = messages.some(
-    (message) =>
-      message.sender_id === me &&
-      message.body.startsWith("✅ Customer confirmation:") &&
-      new Date(message.created_at) >= new Date(ticket.updated_at),
-  );
   const canCreateFollowUp =
     role === "employee" && ticket.user_id === me && ticket.status === "closed";
   const mentionOptions = mentionOptionsForRole(
@@ -1264,7 +1190,7 @@ function TicketDetail() {
                   : "MIS will update the progress of your request."}
             </p>
             <p className="mt-3 text-[10px] leading-relaxed text-muted-foreground">
-              Open → In Progress → Answered → Awaiting Customer Feedback → Closed
+              Open → In Progress → Answered → Closed
             </p>
             <div
               key={ticket.status}
@@ -1444,41 +1370,6 @@ function TicketDetail() {
               </div>
             )}
           </div>
-
-          {canGiveFeedback && (
-            <div className="mt-6 rounded-2xl border border-warning/35 bg-warning/10 p-5">
-              <h2 className="font-bold">MIS is awaiting your feedback</h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Confirm the solution for the MIS Head, or return the ticket to the assigned agent.
-                Only the MIS Head can perform the final close.
-              </p>
-              <p className="mt-1 text-xs font-medium text-warning">
-                Waiting {formatDuration(Date.now() - new Date(ticket.updated_at).getTime())} for
-                your response
-              </p>
-              <div className="mt-4 flex flex-wrap gap-2">
-                <Button
-                  type="button"
-                  onClick={() => void confirmIssueFixed()}
-                  disabled={confirmingFix || customerConfirmed}
-                >
-                  {confirmingFix ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <CheckCircle2 className="mr-2 h-4 w-4" />
-                  )}
-                  {customerConfirmed ? "Confirmation Sent" : "Issue Fixed — Notify MIS Head"}
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => void updateStatus("in_progress")}
-                >
-                  <RotateCcw className="mr-2 h-4 w-4" /> Need More Help
-                </Button>
-              </div>
-            </div>
-          )}
 
           {canCreateFollowUp && (
             <div className="mt-6 rounded-2xl border border-primary/30 bg-primary/5 p-5">

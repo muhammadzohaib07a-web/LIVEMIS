@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ResponsiveContainer,
   PieChart,
@@ -46,14 +46,10 @@ import {
   TICKETS_INITIAL_TAB_KEY,
 } from "@/lib/ticket-status";
 import { APP_TITLE } from "@/lib/app-meta";
-import { sendFeedbackReminders } from "@/lib/feedback-reminders";
 
 type TicketRow = Database["public"]["Tables"]["tickets"]["Row"];
 type NotificationRow = Database["public"]["Tables"]["notifications"]["Row"];
 type Requester = { full_name: string | null; email: string | null; department: string | null };
-
-const FEEDBACK_REMINDER_THROTTLE_KEY = "mis-feedback-reminder-last-sent";
-const FEEDBACK_REMINDER_THROTTLE_MS = 10 * 60 * 1000;
 
 function isAssignmentNotification(notification: Pick<NotificationRow, "title" | "read">) {
   return !notification.read && notification.title.toLowerCase().includes("assigned to you");
@@ -273,37 +269,6 @@ function Dashboard() {
     };
   }, []);
 
-  // An agent-reported ticket is owned by the agent just like an employee's is
-  // owned by the employee — the reporter is the one who owes a response here,
-  // regardless of role. Scoped to t.user_id === me so an agent's ASSIGNED
-  // tickets (someone else's feedback to give) never show up in their own list.
-  const feedbackReminders = useMemo(
-    () =>
-      role === "employee" || role === "agent"
-        ? tickets.filter((t) => t.status === "awaiting_feedback" && t.user_id === me)
-        : [],
-    [tickets, role, me],
-  );
-
-  // The server only actually emails/re-notifies for tickets that have been
-  // waiting an hour or more (see feedback-reminders.ts), so this is safe to
-  // call often — but a fresh network round-trip on every single tab switch
-  // still adds up, so it's throttled to once per browser tab per 10 minutes
-  // instead of once per Dashboard mount.
-  const remindersSentRef = useRef(false);
-  useEffect(() => {
-    if ((role !== "employee" && role !== "agent") || isPreviewMode() || remindersSentRef.current)
-      return;
-    if (feedbackReminders.length === 0) return;
-    const lastSent = Number(sessionStorage.getItem(FEEDBACK_REMINDER_THROTTLE_KEY) ?? 0);
-    if (Date.now() - lastSent < FEEDBACK_REMINDER_THROTTLE_MS) return;
-    remindersSentRef.current = true;
-    sessionStorage.setItem(FEEDBACK_REMINDER_THROTTLE_KEY, String(Date.now()));
-    void sendFeedbackReminders().catch((error) =>
-      console.error("[dashboard] feedback reminder send failed", error),
-    );
-  }, [feedbackReminders, role]);
-
   let dashboardCopy = {
     employee: {
       heading: "My Support Dashboard",
@@ -314,7 +279,6 @@ function Dashboard() {
         open: "Open",
         inProgress: "In Progress",
         answered: "Answered",
-        awaitingFeedback: "Awaiting Feedback",
         closed: "Closed",
         total: "All my requests",
       },
@@ -330,7 +294,6 @@ function Dashboard() {
         open: "Open",
         inProgress: "In Progress",
         answered: "Answered",
-        awaitingFeedback: "Awaiting Feedback",
         closed: "Total Resolved",
         total: "Total Assigned",
       },
@@ -347,7 +310,6 @@ function Dashboard() {
         open: "Open",
         inProgress: "In Progress",
         answered: "Answered",
-        awaitingFeedback: "Awaiting Feedback",
         closed: "Closed",
         total: "Total MIS queue",
       },
@@ -443,13 +405,6 @@ function Dashboard() {
       tone: "text-accent",
     },
     {
-      key: "awaiting_feedback",
-      label: dashboardCopy.statLabels.awaitingFeedback,
-      value: counts.awaiting_feedback ?? 0,
-      icon: Clock,
-      tone: "text-warning",
-    },
-    {
       key: "closed",
       label: dashboardCopy.statLabels.closed,
       value: (counts.closed ?? 0) + (counts.resolved ?? 0),
@@ -506,7 +461,6 @@ function Dashboard() {
     open: "var(--warning)",
     in_progress: "var(--primary)",
     answered: "var(--accent)",
-    awaiting_feedback: "var(--warning)",
     closed: "var(--success)",
     canceled: "var(--destructive)",
   };
@@ -649,47 +603,6 @@ function Dashboard() {
             >
               Dismiss all
             </button>
-          </div>
-        </div>
-      )}
-
-      {(role === "employee" || role === "agent") && feedbackReminders.length > 0 && (
-        <div className="mb-6 rounded-2xl border border-warning/40 bg-warning/10 p-5">
-          <div className="flex items-start gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-warning/20 text-warning">
-              <Clock className="h-5 w-5" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <h2 className="font-bold">
-                {feedbackReminders.length === 1
-                  ? "MIS is waiting on your feedback"
-                  : `MIS is waiting on your feedback for ${feedbackReminders.length} tickets`}
-              </h2>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Please confirm whether the issue is fixed, or let us know it's still not working.
-              </p>
-              <ul className="mt-3 space-y-2">
-                {feedbackReminders.map((t) => (
-                  <li key={t.id}>
-                    <Link
-                      to="/tickets/$id"
-                      params={{ id: t.id }}
-                      className="flex items-center justify-between gap-3 rounded-xl border border-warning/30 bg-background/50 px-3 py-2 text-sm transition hover:border-warning/60"
-                    >
-                      <span className="min-w-0 truncate">
-                        <span className="font-mono text-xs text-muted-foreground">
-                          {t.ticket_no}
-                        </span>{" "}
-                        <span className="font-medium">{t.title}</span>
-                      </span>
-                      <span className="shrink-0 text-xs font-semibold text-warning">
-                        Respond now
-                      </span>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </div>
           </div>
         </div>
       )}

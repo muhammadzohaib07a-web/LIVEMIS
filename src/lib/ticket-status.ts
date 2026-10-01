@@ -27,10 +27,17 @@ export const TICKET_STATUS_STYLES: Record<TicketStatus, string> = {
   canceled: "bg-destructive/15 text-destructive border-destructive/30",
 };
 
+// Open -> In Progress -> Answered -> Closed, with Canceled as a terminal state.
+// There is no customer-confirmation step: once MIS has answered, the ticket is
+// closed.
+//
+// 'awaiting_feedback' is retired. Postgres cannot drop a value from an enum, so
+// it stays in the type and keeps its exits here for any row left in it, but
+// nothing transitions into it.
 export const MIS_STATUS_TRANSITIONS: Record<TicketStatus, TicketStatus[]> = {
   open: ["in_progress", "canceled"],
   in_progress: ["answered", "canceled"],
-  answered: ["awaiting_feedback", "in_progress", "canceled"],
+  answered: ["closed", "in_progress", "canceled"],
   awaiting_feedback: ["closed", "in_progress", "canceled"],
   resolved: ["closed"],
   closed: [],

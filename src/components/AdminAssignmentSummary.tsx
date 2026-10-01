@@ -42,13 +42,13 @@ function displayPerson(person: AssignmentPerson | undefined, fallback: string) {
   return person?.full_name ?? person?.email ?? fallback;
 }
 
-type SummaryFilter = "assigned" | "active" | "unassigned" | "awaiting" | null;
+type SummaryFilter = "assigned" | "active" | "unassigned" | "answered" | null;
 
 const FILTER_LABELS: Record<Exclude<SummaryFilter, null>, string> = {
   assigned: "Assigned",
   active: "Active Work",
   unassigned: "Unassigned",
-  awaiting: "Awaiting Feedback",
+  answered: "Answered",
 };
 
 export function AdminAssignmentSummary({ tickets, people, agents, loading }: Props) {
@@ -60,7 +60,9 @@ export function AdminAssignmentSummary({ tickets, people, agents, loading }: Pro
   const activeTickets = assignedTickets.filter(
     (ticket) => !["closed", "resolved", "canceled"].includes(ticket.status),
   );
-  const awaitingTickets = assignedTickets.filter((ticket) => ticket.status === "awaiting_feedback");
+  // Answered but not yet closed — MIS has replied and the ticket is waiting to
+  // be wrapped up.
+  const answeredTickets = assignedTickets.filter((ticket) => ticket.status === "answered");
 
   const filteredTickets = agentFilter
     ? tickets.filter((ticket) => ticket.assignee_id === agentFilter)
@@ -70,8 +72,8 @@ export function AdminAssignmentSummary({ tickets, people, agents, loading }: Pro
         ? activeTickets
         : filter === "unassigned"
           ? unassignedTickets
-          : filter === "awaiting"
-            ? awaitingTickets
+          : filter === "answered"
+            ? answeredTickets
             : tickets;
 
   const selectFilter = (next: Exclude<SummaryFilter, null>) => {
@@ -92,7 +94,7 @@ export function AdminAssignmentSummary({ tickets, people, agents, loading }: Pro
       active: agentTickets.filter(
         (ticket) => !["closed", "resolved", "canceled"].includes(ticket.status),
       ).length,
-      awaiting: agentTickets.filter((ticket) => ticket.status === "awaiting_feedback").length,
+      answered: agentTickets.filter((ticket) => ticket.status === "answered").length,
       closed: agentTickets.filter((ticket) => ["closed", "resolved"].includes(ticket.status))
         .length,
     };
@@ -159,11 +161,11 @@ export function AdminAssignmentSummary({ tickets, people, agents, loading }: Pro
           />
           <SummaryMetric
             icon={CheckCircle2}
-            label="Awaiting Feedback"
-            value={awaitingTickets.length}
-            detail="Employee confirmation pending"
-            active={filter === "awaiting"}
-            onClick={() => selectFilter("awaiting")}
+            label="Answered"
+            value={answeredTickets.length}
+            detail="Replied, not yet closed"
+            active={filter === "answered"}
+            onClick={() => selectFilter("answered")}
           />
         </div>
       </div>
@@ -328,7 +330,7 @@ export function AdminAssignmentSummary({ tickets, people, agents, loading }: Pro
                 <div className="mt-4 grid grid-cols-4 gap-2 text-center">
                   <WorkloadCount label="Total" value={agent.total} />
                   <WorkloadCount label="Active" value={agent.active} />
-                  <WorkloadCount label="Feedback" value={agent.awaiting} />
+                  <WorkloadCount label="Answered" value={agent.answered} />
                   <WorkloadCount label="Closed" value={agent.closed} />
                 </div>
               </button>

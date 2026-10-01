@@ -84,7 +84,7 @@ function TicketsList() {
   // should never get mixed into the queue they are meant to be resolving.
   // Landing on "reported" is a one-shot deep-link (e.g. the dashboard's "Total
   // Reported" card) — consume the flag once so a normal visit still opens all.
-  const [listView, setListView] = useState<"all" | "assigned" | "reported">(() => {
+  const [listView, setListView] = useState<"all" | "assigned" | "reported" | "done">(() => {
     if (typeof window === "undefined") return "all";
     if (sessionStorage.getItem(TICKETS_INITIAL_TAB_KEY) === "reported") {
       sessionStorage.removeItem(TICKETS_INITIAL_TAB_KEY);
@@ -250,9 +250,14 @@ function TicketsList() {
   // and an employee only ever has their own tickets to begin with.
   const agentScoped =
     role === "agent" && listView !== "all"
-      ? tickets.filter((t) =>
-          listView === "assigned" ? t.assignee_id === me : t.user_id === me,
-        )
+      ? tickets.filter((t) => {
+          if (listView === "assigned") return t.assignee_id === me;
+          if (listView === "reported") return t.user_id === me;
+          // "Done by Me": assigned to this agent and now closed. There is no
+          // column recording who closed a ticket, but an agent can only move
+          // the ones assigned to them, so the assignee is who finished it.
+          return t.assignee_id === me && normalizedTicketStatus(t.status) === "closed";
+        })
       : tickets;
 
   // Department options are derived from whichever requesters we've already
@@ -345,7 +350,9 @@ function TicketsList() {
                       ? "Tickets assigned to you by the MIS Head"
                       : listView === "reported"
                         ? "Tickets you've reported to MIS"
-                        : "Every request raised across the company"}
+                        : listView === "done"
+                          ? "Tickets you were assigned and have closed"
+                          : "Every request raised across the company"}
               </p>
               <h1 className="text-3xl font-black tracking-tight sm:text-4xl">
                 {role === "admin"
@@ -356,7 +363,9 @@ function TicketsList() {
                       ? "My Assigned Tickets"
                       : listView === "reported"
                         ? "Tickets I Reported"
-                        : "All Tickets"}
+                        : listView === "done"
+                          ? "Done by Me"
+                          : "All Tickets"}
               </h1>
             </>
           )}
@@ -389,6 +398,7 @@ function TicketsList() {
             [
               { key: "all", label: "All Tickets" },
               { key: "assigned", label: "Assigned to Me" },
+              { key: "done", label: "Done by Me" },
               { key: "reported", label: "Reported by Me" },
             ] as const
           ).map((tab) => (
@@ -427,7 +437,6 @@ function TicketsList() {
             <SelectItem value="open">Open</SelectItem>
             <SelectItem value="in_progress">In Progress</SelectItem>
             <SelectItem value="answered">Answered</SelectItem>
-            <SelectItem value="awaiting_feedback">Awaiting Customer Feedback</SelectItem>
             <SelectItem value="closed">Closed</SelectItem>
             <SelectItem value="canceled">Canceled</SelectItem>
           </SelectContent>
