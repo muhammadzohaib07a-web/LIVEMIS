@@ -245,6 +245,11 @@ export const Route = createFileRoute("/_authenticated/tickets/$id")({
   component: TicketDetail,
 });
 
+// How far an MIS agent may take a ticket on their own. Awaiting Customer
+// Feedback, the final Closed and Canceled stay with the MIS Head — mirrored in
+// protect_ticket_workflow_fields so hiding the buttons is not the only guard.
+const AGENT_MOVABLE_STATUSES: Status[] = ["in_progress", "answered"];
+
 const statusMeta: Record<Status, { label: string; icon: typeof Clock; cls: string }> = {
   open: { label: "Open", icon: AlertCircle, cls: "bg-warning/15 text-warning border-warning/30" },
   in_progress: {
@@ -922,18 +927,19 @@ function TicketDetail() {
   };
 
   const updateStatus = async (s: Status) => {
-    // Status is the MIS Head's alone. An agent works the ticket and replies in
-    // chat, but does not move it — see the matching database policy in
-    // 20260929120000_everyone_can_read_every_ticket.sql.
-    const canManage = role === "admin";
+    // An agent moves the tickets the Head gave them, and nothing else. On the
+    // rest of the company's tickets — the ones they can now see but were not
+    // assigned — they read and reply only.
+    const canManage = role === "admin" || (role === "agent" && ticket?.assignee_id === me);
     const canGiveCustomerFeedback =
       (role === "employee" || role === "agent") &&
       ticket?.user_id === me &&
       ticket.status === "awaiting_feedback" &&
       (s === "closed" || s === "in_progress");
     if (!canManage && !canGiveCustomerFeedback) return;
-    // Only the MIS Head can cancel or give the final close, even if assigned to an agent.
-    if (role === "agent" && (s === "canceled" || s === "closed")) return;
+    // An agent takes a ticket as far as Answered. Awaiting feedback, the final
+    // close and cancelling are the MIS Head's, even on an agent's own ticket.
+    if (role === "agent" && !AGENT_MOVABLE_STATUSES.includes(s)) return;
     const previousStatus = ticket?.status;
     if (isPreviewMode()) {
       const update = {
@@ -1179,10 +1185,10 @@ function TicketDetail() {
   const StatusIcon = sm.icon;
   const slaState = getSlaState(ticket);
   const nextStatuses = MIS_STATUS_TRANSITIONS[ticket.status].filter(
-    (status) => (status !== "closed" && status !== "canceled") || role === "admin",
+    (status) => role === "admin" || AGENT_MOVABLE_STATUSES.includes(status),
   );
-  // Only the MIS Head moves a ticket. Agents read and reply, nothing else.
-  const canManageStatus = role === "admin";
+  // The Head moves anything; an agent moves only what was assigned to them.
+  const canManageStatus = role === "admin" || (role === "agent" && ticket.assignee_id === me);
   // Everyone can now open every ticket, but replying is unchanged: the person
   // who raised it, plus MIS staff. Without this the composer would show to a
   // bystander and the insert would simply be refused by the database.
@@ -1252,10 +1258,10 @@ function TicketDetail() {
               {role === "admin"
                 ? "Move the ticket through the approved support lifecycle."
                 : role === "agent"
-                  ? "The MIS Head moves this ticket. You can reply in the conversation."
-                  : ticket.user_id === me
-                    ? "MIS will update the progress of your request."
-                    : "MIS will update the progress of this request."}
+                  ? ticket.assignee_id === me
+                    ? "Move your assigned ticket to its next valid stage."
+                    : "This ticket is not assigned to you. You can read it and reply in the conversation."
+                  : "MIS will update the progress of your request."}
             </p>
             <p className="mt-3 text-[10px] leading-relaxed text-muted-foreground">
               Open → In Progress → Answered → Awaiting Customer Feedback → Closed
