@@ -5,7 +5,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { ArrowLeft, Building2, Loader2, Lock, Mail, ShieldCheck } from "lucide-react";
+import {
+  AlertCircle,
+  ArrowLeft,
+  Building2,
+  Eye,
+  EyeOff,
+  Loader2,
+  Lock,
+  Mail,
+  ShieldCheck,
+} from "lucide-react";
 import { BrandLogo } from "@/components/BrandLogo";
 import { LeenLoader } from "@/components/LeenLoader";
 import { disablePreviewMode, enablePreviewMode, isPreviewMode } from "@/lib/preview-auth";
@@ -35,6 +45,10 @@ function AuthPage() {
   const [checking, setChecking] = useState(true);
   const [signInEmail, setSignInEmail] = useState("");
   const [signInPassword, setSignInPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  // Kept next to the fields as well as in a toast: the toast slides away, and a
+  // wrong password is exactly the moment someone needs the reason to stay put.
+  const [signInError, setSignInError] = useState<string | null>(null);
 
   useEffect(() => {
     const searchParams = new URLSearchParams(window.location.search);
@@ -79,17 +93,21 @@ function AuthPage() {
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setSignInError(null);
     const { error } = await supabase.auth.signInWithPassword({
       email: signInEmail.trim().toLowerCase(),
       password: signInPassword,
     });
     setLoading(false);
     if (error) {
-      toast.error(
+      const message =
         error.message === "Invalid login credentials"
-          ? "Email/password is incorrect, or this is only a preview/unconfirmed account."
-          : error.message,
-      );
+          ? "Email or password is incorrect. Check both and try again."
+          : error.message === "Email not confirmed"
+            ? "This account has not been confirmed yet. Ask MIS Head Tahir Ghaffar to confirm it."
+            : error.message;
+      setSignInError(message);
+      toast.error(message);
       return;
     }
     burstConfetti(2500);
@@ -143,8 +161,12 @@ function AuthPage() {
                   required
                   autoComplete="email"
                   value={signInEmail}
-                  onChange={(e) => setSignInEmail(e.target.value)}
-                  className="pl-9"
+                  onChange={(e) => {
+                    setSignInEmail(e.target.value);
+                    setSignInError(null);
+                  }}
+                  aria-invalid={signInError ? true : undefined}
+                  className="pl-9 aria-[invalid=true]:border-destructive aria-[invalid=true]:ring-destructive"
                   placeholder="yourname@gmail.com"
                 />
               </div>
@@ -155,16 +177,39 @@ function AuthPage() {
                 <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   id="si-pass"
-                  type="password"
+                  type={showPassword ? "text" : "password"}
                   required
                   autoComplete="current-password"
                   value={signInPassword}
-                  onChange={(e) => setSignInPassword(e.target.value)}
-                  className="pl-9"
+                  onChange={(e) => {
+                    setSignInPassword(e.target.value);
+                    setSignInError(null);
+                  }}
+                  aria-invalid={signInError ? true : undefined}
+                  className="pl-9 pr-10 aria-[invalid=true]:border-destructive aria-[invalid=true]:ring-destructive"
                   placeholder="••••••••"
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((shown) => !shown)}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  aria-pressed={showPassword}
+                  className="absolute right-1 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
               </div>
             </div>
+            {signInError && (
+              <div
+                role="alert"
+                aria-live="assertive"
+                className="flex items-start gap-2 rounded-xl border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive"
+              >
+                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                <p className="font-medium">{signInError}</p>
+              </div>
+            )}
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Sign in"}
             </Button>

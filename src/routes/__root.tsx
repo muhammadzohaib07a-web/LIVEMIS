@@ -10,6 +10,7 @@ import {
 import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
+import { Toaster } from "../components/ui/sonner";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { applyTheme, getPreferredTheme } from "../lib/theme";
 import { APP_TITLE } from "../lib/app-meta";
@@ -165,6 +166,9 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
       <Outlet />
+      {/* Every toast() call in the app is silent without this host, so it lives
+          at the root and covers the signed-out pages too. */}
+      <Toaster />
     </QueryClientProvider>
   );
 }
