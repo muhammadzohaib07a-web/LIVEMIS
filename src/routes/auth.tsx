@@ -39,6 +39,58 @@ export const Route = createFileRoute("/auth")({
   component: AuthPage,
 });
 
+type SignInError = { message: string; status?: number; code?: string; name?: string };
+
+/**
+ * Supabase deliberately answers every bad sign-in with one joint "Invalid
+ * login credentials" so outsiders cannot discover which addresses have
+ * accounts. On an internal helpdesk that just leaves people guessing, so a
+ * second question is asked — account_sign_in_status, added by the migration
+ * of 2026-10-02 — to name the half that is actually wrong.
+ *
+ * If that function is missing or its grant has been revoked, the lookup fails
+ * and the old joint wording comes back by itself.
+ */
+async function describeSignInError(error: SignInError, email: string): Promise<string> {
+  // A dead network reads as "Failed to fetch", which looks like a rejected
+  // password but is nothing of the sort. Say so plainly.
+  if (
+    error.name === "AuthRetryableFetchError" ||
+    error.status === 0 ||
+    /failed to fetch|network|fetch failed|load failed/i.test(error.message)
+  ) {
+    return "Could not reach the server. Check your internet connection and try again — your email and password were never sent.";
+  }
+
+  if (error.status === 429 || /rate limit|too many/i.test(error.message)) {
+    return "Too many sign-in attempts. Wait a minute, then try again.";
+  }
+
+  if (error.message === "Email not confirmed") {
+    return "This account exists and the password is right, but it has not been confirmed yet. Ask MIS Head Tahir Ghaffar to confirm it.";
+  }
+
+  if (error.message === "Invalid login credentials") {
+    const { data, error: lookupError } = await supabase.rpc("account_sign_in_status", {
+      p_email: email,
+    });
+    if (!lookupError) {
+      if (data === "none") {
+        return `No account exists for ${email}. Check the email address — or ask MIS Head Tahir Ghaffar to create the account.`;
+      }
+      if (data === "unconfirmed") {
+        return "This account has not been confirmed yet. Ask MIS Head Tahir Ghaffar to confirm it.";
+      }
+      if (data === "active") {
+        return "The password is wrong. The email is correct, so only the password needs fixing.";
+      }
+    }
+    return "Email or password is incorrect. Check both and try again.";
+  }
+
+  return error.message;
+}
+
 function AuthPage() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
@@ -94,18 +146,14 @@ function AuthPage() {
     e.preventDefault();
     setLoading(true);
     setSignInError(null);
+    const email = signInEmail.trim().toLowerCase();
     const { error } = await supabase.auth.signInWithPassword({
-      email: signInEmail.trim().toLowerCase(),
+      email,
       password: signInPassword,
     });
     setLoading(false);
     if (error) {
-      const message =
-        error.message === "Invalid login credentials"
-          ? "Email or password is incorrect. Check both and try again."
-          : error.message === "Email not confirmed"
-            ? "This account has not been confirmed yet. Ask MIS Head Tahir Ghaffar to confirm it."
-            : error.message;
+      const message = await describeSignInError(error, email);
       setSignInError(message);
       toast.error(message);
       return;

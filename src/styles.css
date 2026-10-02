@@ -278,6 +278,12 @@ html {
   * {
     border-color: var(--color-border);
   }
+  /* Edge and IE draw their own reveal/clear buttons inside password fields,
+     which sit next to ours and give the box two eyes. */
+  input::-ms-reveal,
+  input::-ms-clear {
+    display: none;
+  }
   html,
   body {
     background-color: var(--color-background);

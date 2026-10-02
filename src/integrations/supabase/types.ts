@@ -366,6 +366,12 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      account_sign_in_status: {
+        Args: {
+          p_email: string;
+        };
+        Returns: string;
+      };
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"];
