@@ -37,12 +37,16 @@ function NotFoundComponent() {
   );
 }
 
-function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
-  console.error(error);
+// The router hands this boundary an `unknown` — a route can throw anything —
+// so it is narrowed once here and the rest of the component works with a real
+// Error.
+function ErrorComponent({ error, reset }: { error: unknown; reset: () => void }) {
+  const failure = error instanceof Error ? error : new Error(String(error));
+  console.error(failure);
   const router = useRouter();
   useEffect(() => {
-    reportLovableError(error, { boundary: "tanstack_root_error_component" });
-  }, [error]);
+    reportLovableError(failure, { boundary: "tanstack_root_error_component" });
+  }, [failure]);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
