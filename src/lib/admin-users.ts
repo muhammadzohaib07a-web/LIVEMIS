@@ -41,6 +41,13 @@ const changeNameSchema = z.object({
   fullName: z.string().trim().min(2).max(100),
 });
 
+// Same bounds as the field on the create form, so an ID that was accepted
+// when the account was made is still accepted when it is corrected.
+const changeEmployeeIdSchema = z.object({
+  userId: z.string().uuid(),
+  employeeId: z.string().trim().min(2).max(40),
+});
+
 const deleteUserSchema = z.object({ userId: z.string().uuid() });
 
 export type ManagedUser = {
@@ -229,6 +236,46 @@ export const changeManagedUserName = createServerFn({ method: "POST" })
     if (authReadError) throw new Error(authReadError.message);
     const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(data.userId, {
       user_metadata: { ...(authUser.user.user_metadata ?? {}), full_name: data.fullName },
+    });
+    if (authError) throw new Error(authError.message);
+    return { success: true };
+  });
+
+export const changeManagedUserEmployeeId = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator(changeEmployeeIdSchema)
+  .handler(async ({ context, data }) => {
+    await assertAdmin(context.supabase, context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    // Nothing in the schema stops two people holding the same employee id, and
+    // an id that points at two people is worse than the wrong id it replaced.
+    const { data: clash, error: clashError } = await supabaseAdmin
+      .from("profiles")
+      .select("id, full_name")
+      .eq("employee_id", data.employeeId)
+      .neq("id", data.userId)
+      .maybeSingle();
+    if (clashError) throw new Error(clashError.message);
+    if (clash) {
+      throw new Error(
+        `Employee ID ${data.employeeId} already belongs to ${clash.full_name ?? "another account"}.`,
+      );
+    }
+
+    const { error: profileError } = await supabaseAdmin
+      .from("profiles")
+      .update({ employee_id: data.employeeId })
+      .eq("id", data.userId);
+    if (profileError) throw new Error(profileError.message);
+
+    // The id is mirrored into user_metadata at creation, so keep both in step.
+    const { data: authUser, error: authReadError } = await supabaseAdmin.auth.admin.getUserById(
+      data.userId,
+    );
+    if (authReadError) throw new Error(authReadError.message);
+    const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(data.userId, {
+      user_metadata: { ...(authUser.user.user_metadata ?? {}), employee_id: data.employeeId },
     });
     if (authError) throw new Error(authError.message);
     return { success: true };

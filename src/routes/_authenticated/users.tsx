@@ -6,6 +6,7 @@ import {
   Clipboard,
   Eye,
   EyeOff,
+  IdCard,
   KeyRound,
   Loader2,
   Mail,
@@ -31,6 +32,7 @@ import {
 import {
   changeManagedUserDepartment,
   changeManagedUserEmail,
+  changeManagedUserEmployeeId,
   changeManagedUserName,
   changeManagedUserRole,
   createManagedUser,
@@ -134,6 +136,9 @@ function UserManagementPage() {
   const [nameUser, setNameUser] = useState<ManagedUser | null>(null);
   const [newName, setNewName] = useState("");
   const [changingName, setChangingName] = useState(false);
+  const [employeeIdUser, setEmployeeIdUser] = useState<ManagedUser | null>(null);
+  const [newEmployeeId, setNewEmployeeId] = useState("");
+  const [changingEmployeeId, setChangingEmployeeId] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<ManagedUser | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [issuedCredentials, setIssuedCredentials] = useState<{
@@ -350,6 +355,41 @@ function UserManagementPage() {
       toast.error(error instanceof Error ? error.message : "Name could not be updated");
     } finally {
       setChangingName(false);
+    }
+  };
+
+  const submitEmployeeIdChange = async (event: React.FormEvent) => {
+    event.preventDefault();
+    const cleanId = newEmployeeId.trim();
+    if (!employeeIdUser || cleanId.length < 2) {
+      toast.error("Enter an employee ID of at least 2 characters");
+      return;
+    }
+    setChangingEmployeeId(true);
+    try {
+      if (isPreviewMode()) {
+        setUsers((current) =>
+          current.map((item) =>
+            item.id === employeeIdUser.id ? { ...item, employeeId: cleanId } : item,
+          ),
+        );
+      } else {
+        await changeManagedUserEmployeeId({
+          data: { userId: employeeIdUser.id, employeeId: cleanId },
+        });
+        await loadUsers();
+      }
+      toast.success(
+        isPreviewMode()
+          ? "Demo employee ID change shown for preview only"
+          : `Employee ID updated to ${cleanId}`,
+      );
+      setEmployeeIdUser(null);
+      setNewEmployeeId("");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Employee ID could not be updated");
+    } finally {
+      setChangingEmployeeId(false);
     }
   };
 
@@ -778,6 +818,55 @@ function UserManagementPage() {
         </form>
       )}
 
+      {employeeIdUser && (
+        <form
+          onSubmit={submitEmployeeIdChange}
+          className="mb-6 rounded-2xl border border-primary/35 bg-primary/5 p-5"
+        >
+          <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+            <div className="w-full max-w-md space-y-2">
+              <Label htmlFor="new-employee-id">
+                New employee ID for {employeeIdUser.fullName ?? employeeIdUser.email}
+              </Label>
+              <div className="relative">
+                <IdCard className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  id="new-employee-id"
+                  required
+                  minLength={2}
+                  maxLength={40}
+                  value={newEmployeeId}
+                  onChange={(event) => setNewEmployeeId(event.target.value)}
+                  className="pl-9 font-mono"
+                  placeholder="EMP-101"
+                  autoFocus
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Currently {employeeIdUser.employeeId ?? "not set"}. Two people cannot hold the same
+                ID.
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => {
+                  setEmployeeIdUser(null);
+                  setNewEmployeeId("");
+                }}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={changingEmployeeId}>
+                {changingEmployeeId ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                Update employee ID
+              </Button>
+            </div>
+          </div>
+        </form>
+      )}
+
       {deleteTarget && (
         <div className="mb-6 rounded-2xl border border-destructive/40 bg-destructive/10 p-5">
           <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
@@ -958,6 +1047,17 @@ function UserManagementPage() {
                           }}
                         >
                           <Mail className="mr-2 h-3.5 w-3.5" /> Email
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setEmployeeIdUser(user);
+                            setNewEmployeeId(user.employeeId ?? "");
+                          }}
+                        >
+                          <IdCard className="mr-2 h-3.5 w-3.5" /> Emp ID
                         </Button>
                         <Button
                           type="button"
