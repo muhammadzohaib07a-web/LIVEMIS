@@ -507,7 +507,10 @@ function TicketsList() {
         ) : (
           <ul className="divide-y divide-border/60">
             {filtered.map((t) => {
-              const slaState = getSlaState(t);
+              // The clock is an MIS working tool. Showing an employee that
+              // their own ticket is "Overdue by 2d" only tells them the team
+              // is late, which is not theirs to chase and reads as pressure.
+              const slaState = isMisStaff(role) ? getSlaState(t) : null;
               return (
               <li key={t.id}>
                 <Link

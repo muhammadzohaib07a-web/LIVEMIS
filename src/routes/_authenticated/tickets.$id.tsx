@@ -1123,7 +1123,8 @@ function TicketDetail() {
 
   const sm = statusMeta[ticket.status];
   const StatusIcon = sm.icon;
-  const slaState = getSlaState(ticket);
+  // MIS staff only -- see the note beside the same call in tickets.index.tsx.
+  const slaState = isMisStaff(role) ? getSlaState(ticket) : null;
   const nextStatuses = MIS_STATUS_TRANSITIONS[ticket.status].filter(
     (status) => role === "admin" || AGENT_MOVABLE_STATUSES.includes(status),
   );
