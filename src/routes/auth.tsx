@@ -20,7 +20,6 @@ import { BrandLogo } from "@/components/BrandLogo";
 import { LeenLoader } from "@/components/LeenLoader";
 import { disablePreviewMode, enablePreviewMode, isPreviewMode } from "@/lib/preview-auth";
 import { APP_TITLE } from "@/lib/app-meta";
-import { burstConfetti } from "@/lib/confetti";
 
 export const Route = createFileRoute("/auth")({
   head: () => ({
@@ -158,7 +157,6 @@ function AuthPage() {
       toast.error(message);
       return;
     }
-    burstConfetti(2500);
     toast.success("Welcome back!");
     navigate({ to: "/dashboard", replace: true });
   };

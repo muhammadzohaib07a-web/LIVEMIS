@@ -20,8 +20,11 @@ export const getRouter = () => {
         <LeenLoader />
       </div>
     ),
-    defaultPendingMs: 200,
-    defaultPendingMinMs: 400,
+    // Only show the loader when a route is genuinely slow, and drop it as soon
+    // as the route is ready. The old 200/400 pair meant a route that resolved
+    // in 210ms was still held on screen for 600ms.
+    defaultPendingMs: 500,
+    defaultPendingMinMs: 150,
   });
 
   return router;
