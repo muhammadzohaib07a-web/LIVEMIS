@@ -20,10 +20,13 @@ export const getRouter = () => {
         <LeenLoader />
       </div>
     ),
-    // Only show the loader when a route is genuinely slow, and drop it as soon
-    // as the route is ready. The old 200/400 pair meant a route that resolved
-    // in 210ms was still held on screen for 600ms.
-    defaultPendingMs: 500,
+    // Feedback has to arrive before the wait feels like a stall, so the loader
+    // appears quickly and leaves as soon as the route is ready. Raising this to
+    // 500ms left the previous page sitting unchanged for half a second, which
+    // reads as the app having frozen rather than as it loading. The old pairing
+    // had the opposite fault: a 400ms floor held the loader on screen long
+    // after the route was ready.
+    defaultPendingMs: 150,
     defaultPendingMinMs: 150,
   });
 
