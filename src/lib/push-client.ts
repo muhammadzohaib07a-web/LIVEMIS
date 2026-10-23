@@ -40,10 +40,33 @@ export async function enablePushNotifications() {
 
   let subscription = await registration.pushManager.getSubscription();
   if (!subscription) {
-    subscription = await registration.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(publicKey),
-    });
+    try {
+      subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(publicKey),
+      });
+    } catch (error) {
+      // The browser has already said permission is granted by this point, so a
+      // refusal here is not the page's prompt -- it is Windows or the browser
+      // itself blocking push for this app. Chromium words that as
+      // "Registration failed - permission denied", which tells nobody what to
+      // change, so say where the switch actually is.
+      const message = error instanceof Error ? error.message : String(error);
+      if (/permission denied|NotAllowedError/i.test(message)) {
+        throw new Error(
+          "Windows or your browser is blocking notifications for this site. " +
+            "Open Windows Settings > System > Notifications and switch your browser on, " +
+            "then click the padlock next to the web address and set Notifications to Allow.",
+        );
+      }
+      if (/applicationServerKey|InvalidAccessError|InvalidStateError/i.test(message)) {
+        throw new Error(
+          "This browser still holds an older notification registration for the site. " +
+            "Clear this site's data in your browser settings, reload, and try again.",
+        );
+      }
+      throw new Error(`The browser refused the notification registration: ${message}`);
+    }
   }
 
   const json = subscription.toJSON();
